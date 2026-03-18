@@ -1,0 +1,201 @@
+[project]
+name = "ha-cloudflare-ai-gateway"
+version = "0.1.4"
+requires-python = ">=3.13.2,<3.14"
+dependencies = [
+    "openai>=2.26.0",
+]
+
+[tool.setuptools]
+packages = ["custom_components.cloudflare_ai_gateway"]
+
+[tool.pyright]
+include = ["custom_components/cloudflare_ai_gateway"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.git",
+    "**/.github",
+    "**/docs",
+    "**/venv",
+    "**/.venv",
+    "**/config",
+]
+venvPath = ".local"
+venv = "ha-venv"
+typeCheckingMode = "basic"
+reportUnusedImport = "none"
+reportUnusedVariable = "none"
+reportUnusedCoroutine = "none"
+reportMissingTypeStubs = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git", "testing_config"]
+log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s:%(filename)s:%(lineno)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+asyncio_debug = true
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra -q --strict-markers"
+filterwarnings = [
+    "error",
+    "ignore::aiohttp.web_exceptions.NotAppKeyWarning",
+    "ignore::DeprecationWarning:homeassistant",
+    "ignore::DeprecationWarning:pytest_homeassistant_custom_component",
+]
+
+[tool.coverage.run]
+source = ["custom_components/cloudflare_ai_gateway"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+
+[tool.ruff]
+required-version = ">=0.13.0"
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "A001",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C",
+    "D",
+    "E",
+    "F",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "INP",
+    "ISC",
+    "LOG",
+    "N804",
+    "N805",
+    "N815",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PL",
+    "PT",
+    "PTH",
+    "PYI",
+    "RET",
+    "RSE",
+    "RUF005",
+    "RUF006",
+    "RUF010",
+    "RUF013",
+    "RUF100",
+    "RUF200",
+    "S102",
+    "S103",
+    "S108",
+    "SIM",
+    "SLF",
+    "SLOT",
+    "T20",
+    "TC",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+]
+
+ignore = [
+    "D202",
+    "D203",
+    "D213",
+    "D406",
+    "D407",
+    "D417",
+    "E501",
+    "PLC1901",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR2004",
+    "PLW2901",
+    "PT011",
+    "PT018",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "RUF015",
+    "SIM102",
+    "SIM103",
+    "SIM108",
+    "SIM115",
+    "TC001",
+    "TC002",
+    "TC003",
+    "TRY003",
+    "TRY400",
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D212",
+    "D300",
+    "Q",
+    "COM812",
+    "COM819",
+    "ISC001",
+]
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+voluptuous = "vol"
+"homeassistant.helpers.config_validation" = "cv"
+"homeassistant.helpers.device_registry" = "dr"
+"homeassistant.helpers.entity_registry" = "er"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["custom_components", "homeassistant"]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",
+    "PLR2004",
+    "D",
+    "PTH",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[dependency-groups]
+dev = [
+    "ha-ffmpeg>=3.2.2",
+    "hassil>=2.2.3",
+    "home-assistant-intents>=2025.3.28",
+    "homeassistant",
+    "mutagen>=1.47.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-homeassistant-custom-component>=0.13.236",
+    "pyturbojpeg>=2.2.0",
+    "ruff>=0.15.5",
+]

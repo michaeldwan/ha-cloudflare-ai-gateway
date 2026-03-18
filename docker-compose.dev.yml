@@ -1,0 +1,14 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    ports:
+      - "8123:8123"
+    volumes:
+      - ha-config:/config
+      - ./custom_components:/config/custom_components
+      - ./.devcontainer/configuration.yaml:/config/configuration.yaml
+    environment:
+      TZ: America/Denver
+
+volumes:
+  ha-config:

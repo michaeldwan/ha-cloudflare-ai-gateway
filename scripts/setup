@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# Install uv if not present
+if ! command -v uv &> /dev/null; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# Install project dependencies (runtime + dev)
+uv sync
+
+# Set up HA config directory with our custom component
+config_dir="config"
+mkdir -p "${config_dir}/custom_components"
+
+# Symlink our component into HA's custom_components
+ln -sfn "$(pwd)/custom_components/cloudflare_ai_gateway" \
+    "${config_dir}/custom_components/cloudflare_ai_gateway"
+
+# Copy default HA configuration if not already present
+if [ ! -f "${config_dir}/configuration.yaml" ]; then
+    cp .devcontainer/configuration.yaml "${config_dir}/configuration.yaml"
+fi
+
+echo "Setup complete. Run 'scripts/develop' to start Home Assistant."

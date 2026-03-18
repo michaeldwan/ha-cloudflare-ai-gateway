@@ -1,0 +1,7 @@
+# Home Assistant dev configuration
+default_config:
+
+logger:
+  default: info
+  logs:
+    custom_components.cloudflare_ai_gateway: debug

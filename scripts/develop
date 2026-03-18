@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+config_dir="config"
+
+# Ensure setup has been run
+if [ ! -d "${config_dir}/custom_components/cloudflare_ai_gateway" ]; then
+    echo "Running setup first..."
+    scripts/setup
+fi
+
+echo "Starting Home Assistant on http://localhost:8123"
+uv run hass -c "${config_dir}" --debug

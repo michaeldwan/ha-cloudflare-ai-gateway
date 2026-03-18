@@ -1,0 +1,102 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This gateway is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Cloudflare API.",
+      "gateway_not_found": "Gateway not found. Check your account ID and gateway ID.",
+      "invalid_auth": "Invalid Cloudflare API token.",
+      "unknown": "An unknown error occurred."
+    },
+    "step": {
+      "reauth_confirm": {
+        "data": {
+          "cf_api_token": "Cloudflare API Token"
+        },
+        "description": "Your API token is no longer valid. Please enter a new one."
+      },
+      "user": {
+        "data": {
+          "account_id": "Cloudflare Account ID",
+          "gateway_id": "Gateway ID",
+          "cf_api_token": "Cloudflare API Token"
+        },
+        "data_description": {
+          "account_id": "Your Cloudflare account ID, found in the dashboard URL.",
+          "gateway_id": "The AI Gateway ID. Use 'default' for the auto-created gateway.",
+          "cf_api_token": "API token with AI Gateway permissions."
+        },
+        "description": "Set up Cloudflare AI Gateway to access 20+ AI providers through a single integration."
+      }
+    }
+  },
+  "config_subentries": {
+    "model": {
+      "abort": {
+        "entry_not_loaded": "Cannot add models while the gateway is not loaded.",
+        "reconfigure_successful": "Successfully reconfigured."
+      },
+      "error": {
+        "model_not_found": "Model not found on Cloudflare Workers AI. Check the model name for typos."
+      },
+      "entry_type": "Model",
+      "initiate_flow": {
+        "reconfigure": "Reconfigure model",
+        "user": "Add model"
+      },
+      "step": {
+        "user": {
+          "description": "What type of model do you want to add?",
+          "menu_options": {
+            "chat": "Chat model\nConversation agent + AI data tasks via any provider (OpenAI, Anthropic, etc.)",
+            "image": "Image model\nImage generation via Cloudflare Workers AI"
+          }
+        },
+        "chat_init": {
+          "data": {
+            "name": "Name",
+            "provider": "Provider",
+            "chat_model": "Model",
+            "prompt": "Prompt",
+            "llm_hass_api": "LLM API",
+            "recommended": "Recommended model settings"
+          },
+          "data_description": {
+            "provider": "The AI provider to route requests through (e.g., openai, anthropic, google-ai-studio).",
+            "chat_model": "The model name at the provider (e.g., gpt-4o-mini, claude-sonnet-4-5).",
+            "prompt": "Instruct how the LLM should respond. This can be a template."
+          }
+        },
+        "advanced": {
+          "data": {
+            "max_tokens": "Maximum tokens to return in response",
+            "temperature": "Temperature",
+            "top_p": "Top P",
+            "cache_ttl": "Cache TTL (seconds)"
+          },
+          "data_description": {
+            "cache_ttl": "How long to cache responses in Cloudflare AI Gateway (in seconds). Leave empty to disable caching."
+          },
+          "title": "Advanced settings"
+        },
+        "image_init": {
+          "data": {
+            "name": "Name",
+            "image_model": "Model",
+            "image_width": "Width",
+            "image_height": "Height",
+            "image_steps": "Inference steps"
+          },
+          "data_description": {
+            "image_model": "The Workers AI image generation model to use.",
+            "image_width": "Width of generated images in pixels.",
+            "image_height": "Height of generated images in pixels.",
+            "image_steps": "Number of inference steps. More steps = higher quality but slower."
+          }
+        }
+      }
+    }
+  }
+}

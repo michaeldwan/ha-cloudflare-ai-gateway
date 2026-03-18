@@ -1,0 +1,63 @@
+[tools]
+python = "3.13"
+uv = "latest"
+
+[tasks.setup]
+description = "Install dependencies and configure dev environment"
+run = "scripts/setup"
+
+[tasks.develop]
+description = "Start Home Assistant in Docker with the integration loaded"
+run = "docker compose -f docker-compose.dev.yml up"
+
+[tasks.test]
+description = "Run tests"
+run = "uv run pytest tests/ -v --timeout=30"
+
+[tasks.lint]
+description = "Run linter and format check"
+run = """
+uv run ruff check custom_components/ tests/
+uv run ruff format --check custom_components/ tests/
+"""
+
+[tasks.format]
+description = "Auto-format code"
+run = "uv run ruff format custom_components/ tests/"
+
+[tasks.validate]
+description = "Run all checks (lint, format, tests) — same as CI"
+depends = ["lint", "test"]
+
+[tasks."version:bump"]
+description = "Increment patch version and sync to manifests"
+run = """
+version=$(cat VERSION.txt | tr -d '[:space:]')
+IFS='.' read -r major minor patch <<< "$version"
+new_version="$major.$minor.$((patch + 1))"
+echo "$new_version" > VERSION.txt
+mise run version:sync
+"""
+
+[tasks."version:sync"]
+description = "Propagate VERSION.txt to manifest.json and pyproject.toml"
+run = """
+version=$(cat VERSION.txt | tr -d '[:space:]')
+sed -i '' 's/"version": "[^"]*"/"version": "'"$version"'"/' custom_components/cloudflare_ai_gateway/manifest.json
+sed -i '' 's/^version = "[^"]*"/version = "'"$version"'"/' pyproject.toml
+echo "Version synced: $version"
+"""
+
+[tasks."ha:local-deploy"]
+description = "Deploy integration to Home Assistant via SMB (set HA_HOST, HA_MOUNT_PATH in mise.local.toml)"
+run = "scripts/local-deploy"
+
+[tasks."ha:release"]
+description = "Validate, bump version, commit, and deploy to Home Assistant"
+depends = ["validate", "version:bump"]
+run = """
+version=$(cat VERSION.txt | tr -d '[:space:]')
+git add VERSION.txt custom_components/cloudflare_ai_gateway/manifest.json pyproject.toml uv.lock
+git commit -m "Bump version to $version"
+mise run ha:local-deploy
+"""

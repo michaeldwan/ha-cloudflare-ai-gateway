@@ -1,0 +1,14 @@
+{
+  "domain": "cloudflare_ai_gateway",
+  "name": "Cloudflare AI Gateway",
+  "after_dependencies": ["assist_pipeline", "intent"],
+  "codeowners": ["@michaeldwan"],
+  "config_flow": true,
+  "dependencies": ["ai_task", "conversation"],
+  "documentation": "https://github.com/michaeldwan/ha-cloudflare-ai-gateway",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "loggers": ["openai", "httpx"],
+  "requirements": ["openai>=2.21.0"],
+  "version": "0.1.4"
+}
