@@ -17,17 +17,14 @@ jobs:
       - name: Run hassfest validation
         uses: home-assistant/actions/hassfest@master
 
-  # HACS validation requires public repo access via GitHub API.
-  # Uncomment when the repo is made public.
-  # hacs:
-  #   name: HACS validation
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout the repository
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Run HACS validation
-  #       uses: hacs/action@main
-  #       with:
-  #         category: integration
-  #         ignore: brands
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Run HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration

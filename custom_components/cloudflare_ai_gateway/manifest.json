@@ -3,6 +3,7 @@
   "name": "Cloudflare AI Gateway",
   "after_dependencies": ["assist_pipeline", "intent"],
   "codeowners": ["@michaeldwan"],
+  "issue_tracker": "https://github.com/michaeldwan/ha-cloudflare-ai-gateway/issues",
   "config_flow": true,
   "dependencies": ["ai_task", "conversation"],
   "documentation": "https://github.com/michaeldwan/ha-cloudflare-ai-gateway",
