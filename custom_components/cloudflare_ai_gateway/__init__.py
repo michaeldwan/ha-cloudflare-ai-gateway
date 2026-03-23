@@ -75,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CloudflareAIGatewayConfi
         except (httpx.ConnectError, httpx.TimeoutException):
             LOGGER.debug("Could not validate model '%s' (network error)", model)
 
-    validation_tasks: list[asyncio.Task] = []
+    validation_tasks = []
     for subentry in entry.subentries.values():
         if subentry.subentry_type == SUBENTRY_TYPE_AI_TASK_IMAGE:
             model = subentry.data.get(CONF_IMAGE_MODEL, "")

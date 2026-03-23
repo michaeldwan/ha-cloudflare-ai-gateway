@@ -8,6 +8,7 @@ import httpx
 import voluptuous as vol
 
 from homeassistant.config_entries import (
+    SOURCE_USER,
     ConfigEntry,
     ConfigEntryState,
     ConfigFlow,
@@ -271,15 +272,17 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
 class CloudflareBaseSubentryFlowHandler(ConfigSubentryFlow):
     """Base flow handler with shared logic for all subentry types."""
 
-    def __init__(self) -> None:
-        """Initialize the flow handler."""
-        super().__init__()
-        self.options: dict[str, Any] = {}
+    options: dict[str, Any]
 
     @property
     def _is_new(self) -> bool:
         """Return if this is a new subentry."""
-        return self.source == "user"
+        return self.source == SOURCE_USER
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        """Reconfigure an existing subentry."""
+        self.options = self._get_reconfigure_subentry().data.copy()
+        return await self.async_step_user()
 
     async def _validate_workers_ai_model(self, model: str) -> None:
         """Validate a Workers AI model if applicable."""
@@ -297,13 +300,10 @@ class CloudflareBaseSubentryFlowHandler(ConfigSubentryFlow):
 class CloudflareChatSubentryFlowHandler(CloudflareBaseSubentryFlowHandler):
     """Flow for adding/editing a conversation or AI task data subentry."""
 
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Reconfigure an existing chat model subentry."""
-        self.options = self._get_reconfigure_subentry().data.copy()
-        return await self.async_step_user()
-
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         """Manage chat model options."""
+        if user_input is None and not hasattr(self, "options"):
+            self.options = {}
         if self._get_entry().state != ConfigEntryState.LOADED:
             return self.async_abort(reason="entry_not_loaded")
 
@@ -338,13 +338,12 @@ class CloudflareChatSubentryFlowHandler(CloudflareBaseSubentryFlowHandler):
         ] = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
 
         if is_conversation:
-            hass_apis: list[SelectOptionDict] = [
-                SelectOptionDict(label=api.name, value=api.id) for api in llm.async_get_apis(self.hass)
-            ]
+            apis = llm.async_get_apis(self.hass)
+            hass_apis: list[SelectOptionDict] = [SelectOptionDict(label=api.name, value=api.id) for api in apis]
             if suggested_llm_apis := options.get(CONF_LLM_HASS_API):
                 if isinstance(suggested_llm_apis, str):
                     suggested_llm_apis = [suggested_llm_apis]
-                valid_apis = {api.id for api in llm.async_get_apis(self.hass)}
+                valid_apis = {api.id for api in apis}
                 options[CONF_LLM_HASS_API] = [api for api in suggested_llm_apis if api in valid_apis]
 
             step_schema.update(
@@ -447,13 +446,10 @@ class CloudflareChatSubentryFlowHandler(CloudflareBaseSubentryFlowHandler):
 class CloudflareImageSubentryFlowHandler(CloudflareBaseSubentryFlowHandler):
     """Flow for adding/editing an AI task image subentry."""
 
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Reconfigure an existing image model subentry."""
-        self.options = self._get_reconfigure_subentry().data.copy()
-        return await self.async_step_user()
-
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         """Manage image model options."""
+        if user_input is None and not hasattr(self, "options"):
+            self.options = {}
         if self._get_entry().state != ConfigEntryState.LOADED:
             return self.async_abort(reason="entry_not_loaded")
         errors: dict[str, str] = {}
