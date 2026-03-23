@@ -33,25 +33,21 @@
     }
   },
   "config_subentries": {
-    "model": {
+    "conversation": {
       "abort": {
-        "entry_not_loaded": "Cannot add models while the gateway is not loaded.",
+        "entry_not_loaded": "Cannot add agents while the gateway is not loaded.",
         "reconfigure_successful": "Successfully reconfigured."
       },
-      "entry_type": "Model",
+      "error": {
+        "model_not_found": "Model not found on Cloudflare Workers AI. Check the model name for typos."
+      },
+      "entry_type": "Conversation agent",
       "initiate_flow": {
-        "reconfigure": "Reconfigure model",
-        "user": "Add model"
+        "reconfigure": "Reconfigure conversation agent",
+        "user": "Add conversation agent"
       },
       "step": {
         "user": {
-          "description": "What type of model do you want to add?",
-          "menu_options": {
-            "chat": "Chat model\nConversation agent + AI data tasks via any provider (OpenAI, Anthropic, etc.)",
-            "image": "Image model\nImage generation via Cloudflare Workers AI"
-          }
-        },
-        "chat_init": {
           "data": {
             "name": "Name",
             "provider": "Provider",
@@ -77,8 +73,64 @@
             "cache_ttl": "How long to cache responses in Cloudflare AI Gateway (in seconds). Leave empty to disable caching."
           },
           "title": "Advanced settings"
+        }
+      }
+    },
+    "ai_task_data": {
+      "abort": {
+        "entry_not_loaded": "Cannot add tasks while the gateway is not loaded.",
+        "reconfigure_successful": "Successfully reconfigured."
+      },
+      "error": {
+        "model_not_found": "Model not found on Cloudflare Workers AI. Check the model name for typos."
+      },
+      "entry_type": "AI data task",
+      "initiate_flow": {
+        "reconfigure": "Reconfigure AI data task",
+        "user": "Add AI data task"
+      },
+      "step": {
+        "user": {
+          "data": {
+            "name": "Name",
+            "provider": "Provider",
+            "chat_model": "Model",
+            "recommended": "Recommended model settings"
+          },
+          "data_description": {
+            "provider": "The AI provider to route requests through (e.g., openai, anthropic, google-ai-studio).",
+            "chat_model": "The model name at the provider (e.g., gpt-4o-mini, claude-sonnet-4-5)."
+          }
         },
-        "image_init": {
+        "advanced": {
+          "data": {
+            "max_tokens": "Maximum tokens to return in response",
+            "temperature": "Temperature",
+            "top_p": "Top P",
+            "cache_ttl": "Cache TTL (seconds)"
+          },
+          "data_description": {
+            "cache_ttl": "How long to cache responses in Cloudflare AI Gateway (in seconds). Leave empty to disable caching."
+          },
+          "title": "Advanced settings"
+        }
+      }
+    },
+    "ai_task_image": {
+      "abort": {
+        "entry_not_loaded": "Cannot add tasks while the gateway is not loaded.",
+        "reconfigure_successful": "Successfully reconfigured."
+      },
+      "error": {
+        "model_not_found": "Model not found on Cloudflare Workers AI. Check the model name for typos."
+      },
+      "entry_type": "AI image task",
+      "initiate_flow": {
+        "reconfigure": "Reconfigure AI image task",
+        "user": "Add AI image task"
+      },
+      "step": {
+        "user": {
           "data": {
             "name": "Name",
             "image_model": "Model",

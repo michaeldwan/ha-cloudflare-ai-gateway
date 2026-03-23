@@ -24,16 +24,14 @@ from .const import (
     CONF_IMAGE_MODEL,
     CONF_IMAGE_STEPS,
     CONF_IMAGE_WIDTH,
-    CONF_MODEL_TYPE,
     DEFAULT_IMAGE_HEIGHT,
     DEFAULT_IMAGE_MODEL,
     DEFAULT_IMAGE_STEPS,
     DEFAULT_IMAGE_WIDTH,
     DOMAIN,
     LOGGER,
-    MODEL_TYPE_CHAT,
-    MODEL_TYPE_IMAGE,
-    SUBENTRY_TYPE_MODEL,
+    SUBENTRY_TYPE_AI_TASK_DATA,
+    SUBENTRY_TYPE_AI_TASK_IMAGE,
 )
 from .entity import CloudflareAIGatewayBaseLLMEntity
 
@@ -50,15 +48,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up AI Task entities."""
     for subentry in config_entry.subentries.values():
-        if subentry.subentry_type != SUBENTRY_TYPE_MODEL:
-            continue
-        model_type = subentry.data.get(CONF_MODEL_TYPE)
-        if model_type == MODEL_TYPE_CHAT:
+        if subentry.subentry_type == SUBENTRY_TYPE_AI_TASK_DATA:
             async_add_entities(
                 [CloudflareAIGatewayDataTaskEntity(config_entry, subentry)],
                 config_subentry_id=subentry.subentry_id,
             )
-        elif model_type == MODEL_TYPE_IMAGE:
+        elif subentry.subentry_type == SUBENTRY_TYPE_AI_TASK_IMAGE:
             async_add_entities(
                 [CloudflareAIGatewayImageTaskEntity(config_entry, subentry)],
                 config_subentry_id=subentry.subentry_id,
@@ -72,15 +67,6 @@ class CloudflareAIGatewayDataTaskEntity(
     """Cloudflare AI Gateway data generation task entity."""
 
     _attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_DATA
-
-    def __init__(
-        self,
-        entry: CloudflareAIGatewayConfigEntry,
-        subentry: ConfigSubentry,
-    ) -> None:
-        """Initialize the entity."""
-        super().__init__(entry, subentry)
-        self._attr_unique_id = f"{subentry.subentry_id}_ai_task"
 
     async def _async_generate_data(
         self,

@@ -18,24 +18,29 @@ from custom_components.cloudflare_ai_gateway.const import (
     CONF_IMAGE_STEPS,
     CONF_IMAGE_WIDTH,
     CONF_MAX_TOKENS,
-    CONF_MODEL_TYPE,
+    CONF_PROMPT,
     CONF_PROVIDER,
     CONF_RECOMMENDED,
     CONF_TEMPERATURE,
     CONF_TOP_P,
+    DEFAULT_AI_TASK_DATA_MODEL,
+    DEFAULT_CONVERSATION_MODEL,
     DEFAULT_IMAGE_HEIGHT,
     DEFAULT_IMAGE_MODEL,
     DEFAULT_IMAGE_STEPS,
     DEFAULT_IMAGE_WIDTH,
+    DEFAULT_PROVIDER,
     DOMAIN,
-    MODEL_TYPE_CHAT,
-    MODEL_TYPE_IMAGE,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
+    SUBENTRY_TYPE_AI_TASK_DATA,
+    SUBENTRY_TYPE_AI_TASK_IMAGE,
+    SUBENTRY_TYPE_CONVERSATION,
 )
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_LLM_HASS_API
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -49,8 +54,8 @@ GATEWAY_DATA = {
 # --- Parent config entry flow ---
 
 
-async def test_form_creates_entry(hass: HomeAssistant) -> None:
-    """Test we can create an entry."""
+async def test_form_creates_entry_with_default_subentries(hass: HomeAssistant) -> None:
+    """Test we can create an entry with default conversation and AI task subentries."""
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {}
@@ -68,8 +73,27 @@ async def test_form_creates_entry(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Cloudflare AI Gateway"
     assert result["data"] == GATEWAY_DATA
-    assert len(result.get("subentries", ())) == 0
     mock_validate.assert_called_once()
+
+    # Verify default subentries were created
+    subentries = result.get("subentries", ())
+    assert len(subentries) == 2
+
+    types = {s["subentry_type"] for s in subentries}
+    assert types == {SUBENTRY_TYPE_CONVERSATION, SUBENTRY_TYPE_AI_TASK_DATA}
+
+    for s in subentries:
+        if s["subentry_type"] == SUBENTRY_TYPE_CONVERSATION:
+            assert s["title"] == "Cloudflare conversation"
+            assert s["data"][CONF_PROVIDER] == DEFAULT_PROVIDER
+            assert s["data"][CONF_CHAT_MODEL] == DEFAULT_CONVERSATION_MODEL
+            assert s["data"][CONF_RECOMMENDED] is True
+            assert s["data"][CONF_LLM_HASS_API] == ["assist"]
+        elif s["subentry_type"] == SUBENTRY_TYPE_AI_TASK_DATA:
+            assert s["title"] == "Cloudflare AI task"
+            assert s["data"][CONF_PROVIDER] == DEFAULT_PROVIDER
+            assert s["data"][CONF_CHAT_MODEL] == DEFAULT_AI_TASK_DATA_MODEL
+            assert s["data"][CONF_RECOMMENDED] is True
 
 
 @pytest.mark.parametrize(
@@ -116,28 +140,21 @@ async def test_duplicate_entry(hass: HomeAssistant) -> None:
     assert result["reason"] == "already_configured"
 
 
-# --- Chat model subentry flow ---
+# --- Conversation subentry flow ---
 
 
-async def test_creating_chat_model_recommended(
+async def test_creating_conversation_recommended(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
-    """Test creating a chat model subentry with recommended options."""
+    """Test creating a conversation subentry with recommended options."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
     )
-    assert result["type"] is FlowResultType.MENU
-    assert result["step_id"] == "user"
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
-    )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "chat_init"
+    assert result["step_id"] == "user"
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
@@ -151,26 +168,21 @@ async def test_creating_chat_model_recommended(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "My Model"
     assert result["data"] == {
-        CONF_MODEL_TYPE: MODEL_TYPE_CHAT,
         CONF_PROVIDER: "anthropic",
         CONF_CHAT_MODEL: "claude-sonnet-4-20250514",
         CONF_RECOMMENDED: True,
     }
 
 
-async def test_creating_chat_model_advanced(
+async def test_creating_conversation_advanced(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
-    """Test creating a chat model subentry with advanced options."""
+    """Test creating a conversation subentry with advanced options."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
     )
 
     result = await hass.config_entries.subentries.async_configure(
@@ -196,7 +208,6 @@ async def test_creating_chat_model_advanced(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Custom Model"
     assert result["data"] == {
-        CONF_MODEL_TYPE: MODEL_TYPE_CHAT,
         CONF_PROVIDER: "openai",
         CONF_CHAT_MODEL: "gpt-4o",
         CONF_RECOMMENDED: False,
@@ -206,19 +217,15 @@ async def test_creating_chat_model_advanced(
     }
 
 
-async def test_creating_chat_model_advanced_with_cache_ttl(
+async def test_creating_conversation_advanced_with_cache_ttl(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
-    """Test creating a chat model subentry with cache TTL set."""
+    """Test creating a conversation subentry with cache TTL set."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
     )
 
     result = await hass.config_entries.subentries.async_configure(
@@ -244,19 +251,15 @@ async def test_creating_chat_model_advanced_with_cache_ttl(
     assert result["data"][CONF_CACHE_TTL] == 300
 
 
-async def test_creating_chat_model_workers_ai_invalid_model(
+async def test_creating_conversation_workers_ai_invalid_model(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
-    """Test creating a chat model with an invalid Workers AI model shows error."""
+    """Test creating a conversation with an invalid Workers AI model shows error."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
     )
 
     with patch(
@@ -275,23 +278,19 @@ async def test_creating_chat_model_workers_ai_invalid_model(
         )
 
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "chat_init"
+    assert result["step_id"] == "user"
     assert result["errors"] == {CONF_CHAT_MODEL: "model_not_found"}
 
 
-async def test_creating_chat_model_workers_ai_valid_model(
+async def test_creating_conversation_workers_ai_valid_model(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
-    """Test creating a chat model with a valid Workers AI model succeeds."""
+    """Test creating a conversation with a valid Workers AI model succeeds."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
     )
 
     with patch(
@@ -312,19 +311,15 @@ async def test_creating_chat_model_workers_ai_valid_model(
     assert result["data"][CONF_CHAT_MODEL] == "@cf/moonshotai/kimi-k2.5"
 
 
-async def test_creating_chat_model_non_workers_ai_skips_validation(
+async def test_creating_conversation_non_workers_ai_skips_validation(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
     """Test that non-Workers AI models skip model validation."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
     )
 
     with patch(
@@ -345,19 +340,15 @@ async def test_creating_chat_model_non_workers_ai_skips_validation(
     mock_validate.assert_not_called()
 
 
-async def test_creating_chat_model_validation_network_error_proceeds(
+async def test_creating_conversation_validation_network_error_proceeds(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
     """Test that network errors during validation don't block model creation."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
-    )
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "chat"},
     )
 
     with patch(
@@ -386,27 +377,27 @@ async def test_creating_subentry_not_loaded(
     assert mock_config_entry.state is not ConfigEntryState.LOADED
 
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "user"},
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "entry_not_loaded"
 
 
-async def test_reconfigure_chat_model_subentry(
+async def test_reconfigure_conversation_subentry(
     hass: HomeAssistant,
     mock_config_entry_with_subentries: MockConfigEntry,
     mock_init_component_with_subentries: None,
 ) -> None:
-    """Test reconfiguring an existing chat model subentry."""
+    """Test reconfiguring an existing conversation subentry."""
     subentry = next(iter(mock_config_entry_with_subentries.subentries.values()))
 
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry_with_subentries.entry_id, "model"),
+        (mock_config_entry_with_subentries.entry_id, SUBENTRY_TYPE_CONVERSATION),
         context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
     )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "chat_init"
+    assert result["step_id"] == "user"
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
@@ -424,6 +415,201 @@ async def test_reconfigure_chat_model_subentry(
     updated_subentry = mock_config_entry_with_subentries.subentries[subentry.subentry_id]
     assert updated_subentry.data[CONF_PROVIDER] == "anthropic"
     assert updated_subentry.data[CONF_CHAT_MODEL] == "claude-sonnet-4-20250514"
+
+
+# --- AI task data subentry flow ---
+
+
+async def test_creating_ai_task_data_recommended(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_init_component: None,
+) -> None:
+    """Test creating an AI task data subentry with recommended options."""
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_DATA),
+        context={"source": "user"},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+
+    # Verify prompt and LLM API fields are NOT in the schema
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert CONF_PROMPT not in schema_keys
+    assert CONF_LLM_HASS_API not in schema_keys
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "My Data Task",
+            CONF_PROVIDER: "openai",
+            CONF_CHAT_MODEL: "gpt-4o-mini",
+            CONF_RECOMMENDED: True,
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "My Data Task"
+    assert result["data"] == {
+        CONF_PROVIDER: "openai",
+        CONF_CHAT_MODEL: "gpt-4o-mini",
+        CONF_RECOMMENDED: True,
+    }
+
+
+async def test_creating_ai_task_data_advanced(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_init_component: None,
+) -> None:
+    """Test creating an AI task data subentry with advanced options."""
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_DATA),
+        context={"source": "user"},
+    )
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Custom Data Task",
+            CONF_PROVIDER: "openai",
+            CONF_CHAT_MODEL: "gpt-4o",
+            CONF_RECOMMENDED: False,
+        },
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "advanced"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_MAX_TOKENS: 8192,
+            CONF_TOP_P: 0.95,
+            CONF_TEMPERATURE: 0.5,
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Custom Data Task"
+    assert result["data"] == {
+        CONF_PROVIDER: "openai",
+        CONF_CHAT_MODEL: "gpt-4o",
+        CONF_RECOMMENDED: False,
+        CONF_MAX_TOKENS: 8192,
+        CONF_TOP_P: 0.95,
+        CONF_TEMPERATURE: 0.5,
+    }
+
+
+async def test_creating_ai_task_data_not_loaded(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test creating an AI task data subentry aborts when entry is not loaded."""
+    assert mock_config_entry.state is not ConfigEntryState.LOADED
+
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_DATA),
+        context={"source": "user"},
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "entry_not_loaded"
+
+
+async def test_reconfigure_ai_task_data_subentry(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+) -> None:
+    """Test reconfiguring an existing AI task data subentry."""
+    subentry = next(iter(mock_config_entry_with_ai_task_data.subentries.values()))
+
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry_with_ai_task_data.entry_id, SUBENTRY_TYPE_AI_TASK_DATA),
+        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_PROVIDER: "anthropic",
+            CONF_CHAT_MODEL: "claude-sonnet-4-20250514",
+            CONF_RECOMMENDED: True,
+        },
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+    updated_subentry = mock_config_entry_with_ai_task_data.subentries[subentry.subentry_id]
+    assert updated_subentry.data[CONF_PROVIDER] == "anthropic"
+
+
+async def test_conversation_form_includes_prompt_and_llm_api(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_init_component: None,
+) -> None:
+    """Test that conversation form includes prompt and LLM API fields."""
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
+        context={"source": "user"},
+    )
+    assert result["type"] is FlowResultType.FORM
+
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert CONF_PROMPT in schema_keys
+    assert CONF_LLM_HASS_API in schema_keys
+
+
+async def test_conversation_form_defaults(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_init_component: None,
+) -> None:
+    """Test that conversation form defaults to workers-ai provider and GLM flash model."""
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_CONVERSATION),
+        context={"source": "user"},
+    )
+    assert result["type"] is FlowResultType.FORM
+
+    schema = result["data_schema"].schema
+    defaults = {str(k): k.default() if callable(k.default) else k.default for k in schema if hasattr(k, "default")}
+    assert defaults[CONF_PROVIDER] == DEFAULT_PROVIDER
+    assert defaults[CONF_CHAT_MODEL] == DEFAULT_CONVERSATION_MODEL
+
+
+async def test_ai_task_data_form_defaults(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_init_component: None,
+) -> None:
+    """Test that AI task data form defaults to workers-ai provider and Kimi model."""
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_DATA),
+        context={"source": "user"},
+    )
+    assert result["type"] is FlowResultType.FORM
+
+    schema = result["data_schema"].schema
+    defaults = {str(k): k.default() if callable(k.default) else k.default for k in schema if hasattr(k, "default")}
+    assert defaults[CONF_PROVIDER] == DEFAULT_PROVIDER
+    assert defaults[CONF_CHAT_MODEL] == DEFAULT_AI_TASK_DATA_MODEL
+
+
+async def test_creating_image_subentry_not_loaded(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test creating an image subentry aborts when entry is not loaded."""
+    assert mock_config_entry.state is not ConfigEntryState.LOADED
+
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_IMAGE),
+        context={"source": "user"},
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "entry_not_loaded"
 
 
 # --- Reauth flow ---
@@ -476,7 +662,7 @@ async def test_reauth_invalid_token(
     assert result["errors"] == {"base": "invalid_auth"}
 
 
-# --- Image model subentry flow ---
+# --- AI task image subentry flow ---
 
 
 async def test_creating_image_model_subentry(
@@ -486,17 +672,11 @@ async def test_creating_image_model_subentry(
 ) -> None:
     """Test creating an image model subentry."""
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry.entry_id, "model"),
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_IMAGE),
         context={"source": "user"},
     )
-    assert result["type"] is FlowResultType.MENU
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {"next_step_id": "image"},
-    )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "image_init"
+    assert result["step_id"] == "user"
 
     with patch(
         "custom_components.cloudflare_ai_gateway.config_flow.validate_model",
@@ -515,7 +695,6 @@ async def test_creating_image_model_subentry(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "My Image Model"
     assert result["data"] == {
-        CONF_MODEL_TYPE: MODEL_TYPE_IMAGE,
         CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
         CONF_IMAGE_WIDTH: DEFAULT_IMAGE_WIDTH,
         CONF_IMAGE_HEIGHT: DEFAULT_IMAGE_HEIGHT,
@@ -532,11 +711,11 @@ async def test_reconfigure_image_model_subentry(
     subentry = next(iter(mock_config_entry_with_image_model.subentries.values()))
 
     result = await hass.config_entries.subentries.async_init(
-        (mock_config_entry_with_image_model.entry_id, "model"),
+        (mock_config_entry_with_image_model.entry_id, SUBENTRY_TYPE_AI_TASK_IMAGE),
         context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
     )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "image_init"
+    assert result["step_id"] == "user"
 
     with patch(
         "custom_components.cloudflare_ai_gateway.config_flow.validate_model",

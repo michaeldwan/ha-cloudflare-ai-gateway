@@ -29,7 +29,6 @@ from .const import (
     CONF_PROVIDER,
     CONF_TEMPERATURE,
     CONF_TOP_P,
-    DEFAULT_CHAT_MODEL,
     DEFAULT_PROVIDER,
     DOMAIN,
     LOGGER,
@@ -206,7 +205,7 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
         self.subentry = subentry
         self._attr_unique_id = subentry.subentry_id
         provider = subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
-        model = subentry.data.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+        model = subentry.data[CONF_CHAT_MODEL]
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
@@ -247,7 +246,7 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
     def _get_model(self) -> str:
         """Get the model string in provider/model format."""
         provider = self.subentry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER)
-        model = self.subentry.data.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL)
+        model = self.subentry.data[CONF_CHAT_MODEL]
         return f"{provider}/{model}"
 
     async def _async_handle_chat_log(

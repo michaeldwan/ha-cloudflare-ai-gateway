@@ -19,10 +19,11 @@ from .const import (
     CONF_CF_API_TOKEN,
     CONF_CHAT_MODEL,
     CONF_IMAGE_MODEL,
-    CONF_MODEL_TYPE,
     DOMAIN,
     LOGGER,
-    MODEL_TYPE_IMAGE,
+    SUBENTRY_TYPE_AI_TASK_DATA,
+    SUBENTRY_TYPE_AI_TASK_IMAGE,
+    SUBENTRY_TYPE_CONVERSATION,
     WORKERS_AI_MODEL_PREFIXES,
 )
 
@@ -76,11 +77,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: CloudflareAIGatewayConfi
 
     validation_tasks: list[asyncio.Task] = []
     for subentry in entry.subentries.values():
-        model_type = subentry.data.get(CONF_MODEL_TYPE)
-        if model_type == MODEL_TYPE_IMAGE:
+        if subentry.subentry_type == SUBENTRY_TYPE_AI_TASK_IMAGE:
             model = subentry.data.get(CONF_IMAGE_MODEL, "")
-        else:
+        elif subentry.subentry_type in (SUBENTRY_TYPE_CONVERSATION, SUBENTRY_TYPE_AI_TASK_DATA):
             model = subentry.data.get(CONF_CHAT_MODEL, "")
+        else:
+            continue
 
         if model.startswith(WORKERS_AI_MODEL_PREFIXES):
             validation_tasks.append(_validate_subentry_model(subentry.title, model))

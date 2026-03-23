@@ -10,15 +10,12 @@ CONF_ACCOUNT_ID = "account_id"
 CONF_GATEWAY_ID = "gateway_id"
 CONF_CF_API_TOKEN = "cf_api_token"
 
-# Subentry type
-SUBENTRY_TYPE_MODEL = "model"
-
-# Model types (stored in subentry data)
-MODEL_TYPE_CHAT = "chat"
-MODEL_TYPE_IMAGE = "image"
+# Subentry types (one per platform capability)
+SUBENTRY_TYPE_CONVERSATION = "conversation"
+SUBENTRY_TYPE_AI_TASK_DATA = "ai_task_data"
+SUBENTRY_TYPE_AI_TASK_IMAGE = "ai_task_image"
 
 # Config keys - subentry (per-model settings)
-CONF_MODEL_TYPE = "model_type"
 CONF_PROVIDER = "provider"
 CONF_CHAT_MODEL = "chat_model"
 CONF_MAX_TOKENS = "max_tokens"
@@ -38,8 +35,9 @@ CONF_CACHE_TTL = "cache_ttl"
 
 # Defaults
 DEFAULT_GATEWAY_ID = "default"
-DEFAULT_PROVIDER = "openai"
-DEFAULT_CHAT_MODEL = "gpt-4o-mini"
+DEFAULT_PROVIDER = "workers-ai"
+DEFAULT_CONVERSATION_MODEL = "@cf/zai-org/glm-4.7-flash"
+DEFAULT_AI_TASK_DATA_MODEL = "@cf/moonshotai/kimi-k2.5"
 
 DEFAULT_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 DEFAULT_IMAGE_WIDTH = 1024

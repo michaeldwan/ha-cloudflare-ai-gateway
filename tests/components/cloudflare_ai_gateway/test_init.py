@@ -8,12 +8,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cloudflare_ai_gateway.const import (
     CONF_CHAT_MODEL,
-    CONF_MODEL_TYPE,
     CONF_PROVIDER,
     CONF_RECOMMENDED,
     DOMAIN,
-    MODEL_TYPE_CHAT,
-    SUBENTRY_TYPE_MODEL,
+    SUBENTRY_TYPE_CONVERSATION,
 )
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.core import HomeAssistant
@@ -158,14 +156,13 @@ async def test_setup_with_subentries_creates_entities(
     mock_config_entry_with_subentries: MockConfigEntry,
     mock_init_component_with_subentries: None,
 ) -> None:
-    """Test that loading with subentries creates conversation and ai_task entities."""
+    """Test that loading with a conversation subentry creates a conversation entity."""
     assert mock_config_entry_with_subentries.state is ConfigEntryState.LOADED
 
     entity_registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(entity_registry, mock_config_entry_with_subentries.entry_id)
-    assert len(entities) == 2
-    domains = {e.domain for e in entities}
-    assert domains == {"conversation", "ai_task"}
+    assert len(entities) == 1
+    assert entities[0].domain == "conversation"
 
 
 async def test_subentry_added_reloads_entry(
@@ -195,23 +192,22 @@ async def test_subentry_added_reloads_entry(
             ConfigSubentry(
                 data=MappingProxyType(
                     {
-                        CONF_MODEL_TYPE: MODEL_TYPE_CHAT,
                         CONF_RECOMMENDED: True,
                         CONF_PROVIDER: "openai",
                         CONF_CHAT_MODEL: "gpt-4o-mini",
                     }
                 ),
-                subentry_type=SUBENTRY_TYPE_MODEL,
+                subentry_type=SUBENTRY_TYPE_CONVERSATION,
                 title="Test Model",
                 unique_id=None,
             ),
         )
         await hass.async_block_till_done()
 
-    # After reload, the new subentry's entities should exist (conversation + ai_task)
+    # After reload, the new conversation subentry's entity should exist
     assert mock_config_entry.state is ConfigEntryState.LOADED
     entities = er.async_entries_for_config_entry(entity_registry, mock_config_entry.entry_id)
-    assert len(entities) == 2
+    assert len(entities) == 1
 
 
 async def test_device_created_per_subentry(

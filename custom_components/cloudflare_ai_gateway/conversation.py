@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import CloudflareAIGatewayConfigEntry
-from .const import CONF_MODEL_TYPE, CONF_PROMPT, DOMAIN, MODEL_TYPE_CHAT, SUBENTRY_TYPE_MODEL
+from .const import CONF_PROMPT, DOMAIN, SUBENTRY_TYPE_CONVERSATION
 from .entity import CloudflareAIGatewayBaseLLMEntity
 
 
@@ -20,7 +20,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up conversation entities."""
     for subentry in config_entry.subentries.values():
-        if subentry.subentry_type != SUBENTRY_TYPE_MODEL or subentry.data.get(CONF_MODEL_TYPE) != MODEL_TYPE_CHAT:
+        if subentry.subentry_type != SUBENTRY_TYPE_CONVERSATION:
             continue
 
         async_add_entities(

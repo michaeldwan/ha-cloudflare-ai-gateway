@@ -44,13 +44,13 @@ from .const import (
     CONF_IMAGE_STEPS,
     CONF_IMAGE_WIDTH,
     CONF_MAX_TOKENS,
-    CONF_MODEL_TYPE,
     CONF_PROMPT,
     CONF_PROVIDER,
     CONF_RECOMMENDED,
     CONF_TEMPERATURE,
     CONF_TOP_P,
-    DEFAULT_CHAT_MODEL,
+    DEFAULT_AI_TASK_DATA_MODEL,
+    DEFAULT_CONVERSATION_MODEL,
     DEFAULT_GATEWAY_ID,
     DEFAULT_IMAGE_HEIGHT,
     DEFAULT_IMAGE_MODEL,
@@ -59,12 +59,12 @@ from .const import (
     DEFAULT_PROVIDER,
     DOMAIN,
     LOGGER,
-    MODEL_TYPE_CHAT,
-    MODEL_TYPE_IMAGE,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
-    SUBENTRY_TYPE_MODEL,
+    SUBENTRY_TYPE_AI_TASK_DATA,
+    SUBENTRY_TYPE_AI_TASK_IMAGE,
+    SUBENTRY_TYPE_CONVERSATION,
     SUPPORTED_IMAGE_MODELS,
     SUPPORTED_PROVIDERS,
     WORKERS_AI_MODEL_PREFIXES,
@@ -156,7 +156,7 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Cloudflare AI Gateway."""
 
     VERSION = 1
-    MINOR_VERSION = 1
+    MINOR_VERSION = 2
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
@@ -191,6 +191,29 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="Cloudflare AI Gateway",
                     data=user_input,
+                    subentries=[
+                        {
+                            "subentry_type": SUBENTRY_TYPE_CONVERSATION,
+                            "title": "Cloudflare conversation",
+                            "data": {
+                                CONF_RECOMMENDED: True,
+                                CONF_PROVIDER: DEFAULT_PROVIDER,
+                                CONF_CHAT_MODEL: DEFAULT_CONVERSATION_MODEL,
+                                CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
+                            },
+                            "unique_id": None,
+                        },
+                        {
+                            "subentry_type": SUBENTRY_TYPE_AI_TASK_DATA,
+                            "title": "Cloudflare AI task",
+                            "data": {
+                                CONF_RECOMMENDED: True,
+                                CONF_PROVIDER: DEFAULT_PROVIDER,
+                                CONF_CHAT_MODEL: DEFAULT_AI_TASK_DATA_MODEL,
+                            },
+                            "unique_id": None,
+                        },
+                    ],
                 )
 
         return self.async_show_form(
@@ -239,49 +262,24 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentries supported by this integration."""
         return {
-            SUBENTRY_TYPE_MODEL: CloudflareSubentryFlowHandler,
+            SUBENTRY_TYPE_CONVERSATION: CloudflareChatSubentryFlowHandler,
+            SUBENTRY_TYPE_AI_TASK_DATA: CloudflareChatSubentryFlowHandler,
+            SUBENTRY_TYPE_AI_TASK_IMAGE: CloudflareImageSubentryFlowHandler,
         }
 
 
-class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
-    """Flow for adding/editing a chat model or image model subentry."""
+class CloudflareBaseSubentryFlowHandler(ConfigSubentryFlow):
+    """Base flow handler with shared logic for all subentry types."""
 
-    options: dict[str, Any]
+    def __init__(self) -> None:
+        """Initialize the flow handler."""
+        super().__init__()
+        self.options: dict[str, Any] = {}
 
     @property
     def _is_new(self) -> bool:
         """Return if this is a new subentry."""
         return self.source == "user"
-
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Add a new model."""
-        self.options = {}
-        if self._get_entry().state != ConfigEntryState.LOADED:
-            return self.async_abort(reason="entry_not_loaded")
-        return self.async_show_menu(
-            step_id="user",
-            menu_options=[MODEL_TYPE_CHAT, MODEL_TYPE_IMAGE],
-        )
-
-    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Reconfigure an existing model."""
-        self.options = self._get_reconfigure_subentry().data.copy()
-        if self._get_entry().state != ConfigEntryState.LOADED:
-            return self.async_abort(reason="entry_not_loaded")
-        model_type = self.options.get(CONF_MODEL_TYPE)
-        if model_type == MODEL_TYPE_IMAGE:
-            return await self.async_step_image_init()
-        return await self.async_step_chat_init()
-
-    async def async_step_chat(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Menu selected chat model."""
-        self.options[CONF_MODEL_TYPE] = MODEL_TYPE_CHAT
-        return await self.async_step_chat_init()
-
-    async def async_step_image(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
-        """Menu selected image model."""
-        self.options[CONF_MODEL_TYPE] = MODEL_TYPE_IMAGE
-        return await self.async_step_image_init()
 
     async def _validate_workers_ai_model(self, model: str) -> None:
         """Validate a Workers AI model if applicable."""
@@ -295,19 +293,24 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
             model,
         )
 
-    async def async_step_chat_init(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+
+class CloudflareChatSubentryFlowHandler(CloudflareBaseSubentryFlowHandler):
+    """Flow for adding/editing a conversation or AI task data subentry."""
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        """Reconfigure an existing chat model subentry."""
+        self.options = self._get_reconfigure_subentry().data.copy()
+        return await self.async_step_user()
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         """Manage chat model options."""
+        if self._get_entry().state != ConfigEntryState.LOADED:
+            return self.async_abort(reason="entry_not_loaded")
+
         errors: dict[str, str] = {}
         options = self.options
-
-        hass_apis: list[SelectOptionDict] = [
-            SelectOptionDict(label=api.name, value=api.id) for api in llm.async_get_apis(self.hass)
-        ]
-        if suggested_llm_apis := options.get(CONF_LLM_HASS_API):
-            if isinstance(suggested_llm_apis, str):
-                suggested_llm_apis = [suggested_llm_apis]
-            valid_apis = {api.id for api in llm.async_get_apis(self.hass)}
-            options[CONF_LLM_HASS_API] = [api for api in suggested_llm_apis if api in valid_apis]
+        is_conversation = self._subentry_type == SUBENTRY_TYPE_CONVERSATION
+        default_model = DEFAULT_CONVERSATION_MODEL if is_conversation else DEFAULT_AI_TASK_DATA_MODEL
 
         step_schema: VolDictType = {}
 
@@ -330,23 +333,36 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
         step_schema[
             vol.Optional(
                 CONF_CHAT_MODEL,
-                default=options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+                default=options.get(CONF_CHAT_MODEL, default_model),
             )
         ] = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
 
-        step_schema.update(
-            {
-                vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT)},
-                ): TemplateSelector(),
-                vol.Optional(CONF_LLM_HASS_API): SelectSelector(SelectSelectorConfig(options=hass_apis, multiple=True)),
-                vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False)): bool,
-            }
-        )
+        if is_conversation:
+            hass_apis: list[SelectOptionDict] = [
+                SelectOptionDict(label=api.name, value=api.id) for api in llm.async_get_apis(self.hass)
+            ]
+            if suggested_llm_apis := options.get(CONF_LLM_HASS_API):
+                if isinstance(suggested_llm_apis, str):
+                    suggested_llm_apis = [suggested_llm_apis]
+                valid_apis = {api.id for api in llm.async_get_apis(self.hass)}
+                options[CONF_LLM_HASS_API] = [api for api in suggested_llm_apis if api in valid_apis]
+
+            step_schema.update(
+                {
+                    vol.Optional(
+                        CONF_PROMPT,
+                        description={"suggested_value": options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT)},
+                    ): TemplateSelector(),
+                    vol.Optional(CONF_LLM_HASS_API): SelectSelector(
+                        SelectSelectorConfig(options=hass_apis, multiple=True)
+                    ),
+                }
+            )
+
+        step_schema[vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))] = bool
 
         if user_input is not None:
-            if not user_input.get(CONF_LLM_HASS_API):
+            if is_conversation and not user_input.get(CONF_LLM_HASS_API):
                 user_input.pop(CONF_LLM_HASS_API, None)
 
             # Validate Workers AI models against the CF API
@@ -360,7 +376,6 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
 
             if not errors:
                 if user_input[CONF_RECOMMENDED]:
-                    user_input[CONF_MODEL_TYPE] = MODEL_TYPE_CHAT
                     if self._is_new:
                         return self.async_create_entry(
                             title=user_input.pop(CONF_NAME),
@@ -373,12 +388,12 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
                     )
 
                 options.update(user_input)
-                if CONF_LLM_HASS_API in options and CONF_LLM_HASS_API not in user_input:
+                if is_conversation and CONF_LLM_HASS_API in options and CONF_LLM_HASS_API not in user_input:
                     options.pop(CONF_LLM_HASS_API)
                 return await self.async_step_advanced()
 
         return self.async_show_form(
-            step_id="chat_init",
+            step_id="user",
             data_schema=self.add_suggested_values_to_schema(vol.Schema(step_schema), options),
             errors=errors,
         )
@@ -428,8 +443,19 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
             data_schema=self.add_suggested_values_to_schema(vol.Schema(step_schema), options),
         )
 
-    async def async_step_image_init(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+
+class CloudflareImageSubentryFlowHandler(CloudflareBaseSubentryFlowHandler):
+    """Flow for adding/editing an AI task image subentry."""
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        """Reconfigure an existing image model subentry."""
+        self.options = self._get_reconfigure_subentry().data.copy()
+        return await self.async_step_user()
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
         """Manage image model options."""
+        if self._get_entry().state != ConfigEntryState.LOADED:
+            return self.async_abort(reason="entry_not_loaded")
         errors: dict[str, str] = {}
         options = self.options
 
@@ -478,7 +504,6 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
                 LOGGER.warning("Could not validate model (network error), proceeding anyway")
 
             if not errors:
-                user_input[CONF_MODEL_TYPE] = MODEL_TYPE_IMAGE
                 if self._is_new:
                     return self.async_create_entry(
                         title=user_input.pop(CONF_NAME),
@@ -491,7 +516,7 @@ class CloudflareSubentryFlowHandler(ConfigSubentryFlow):
                 )
 
         return self.async_show_form(
-            step_id="image_init",
+            step_id="user",
             data_schema=self.add_suggested_values_to_schema(vol.Schema(step_schema), options),
             errors=errors,
         )

@@ -16,11 +16,9 @@ from custom_components.cloudflare_ai_gateway.const import (
     CONF_IMAGE_MODEL,
     CONF_IMAGE_STEPS,
     CONF_IMAGE_WIDTH,
-    CONF_MODEL_TYPE,
     DEFAULT_IMAGE_MODEL,
     DOMAIN,
-    MODEL_TYPE_IMAGE,
-    SUBENTRY_TYPE_MODEL,
+    SUBENTRY_TYPE_AI_TASK_IMAGE,
 )
 from homeassistant.components import ai_task
 from homeassistant.config_entries import ConfigSubentryData
@@ -30,18 +28,24 @@ from homeassistant.exceptions import HomeAssistantError
 
 async def test_data_task_entity_is_registered(
     hass: HomeAssistant,
-    mock_config_entry_with_subentries: MockConfigEntry,
-    mock_init_component_with_subentries: None,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
 ) -> None:
-    """Test AI task data entity is set up from chat model subentry."""
-    state = hass.states.async_entity_ids("ai_task")
-    assert len(state) >= 1
+    """Test AI task data entity is set up from ai_task_data subentry."""
+    ai_task_ids = [eid for eid in hass.states.async_entity_ids("ai_task") if eid != "ai_task.home_assistant"]
+    assert len(ai_task_ids) == 1
+
+    # Should not create a conversation entity
+    conversation_ids = [
+        eid for eid in hass.states.async_entity_ids("conversation") if eid != "conversation.home_assistant"
+    ]
+    assert len(conversation_ids) == 0
 
 
 async def test_generate_data_plain_text(
     hass: HomeAssistant,
-    mock_config_entry_with_subentries: MockConfigEntry,
-    mock_init_component_with_subentries: None,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
     mock_create_stream: AsyncMock,
 ) -> None:
     """Test generate_data returns plain text."""
@@ -60,8 +64,8 @@ async def test_generate_data_plain_text(
 
 async def test_generate_data_structured(
     hass: HomeAssistant,
-    mock_config_entry_with_subentries: MockConfigEntry,
-    mock_init_component_with_subentries: None,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
     mock_create_stream: AsyncMock,
 ) -> None:
     """Test generate_data with structured output parses JSON."""
@@ -106,8 +110,8 @@ async def test_generate_data_structured(
 
 async def test_generate_data_structured_invalid_json(
     hass: HomeAssistant,
-    mock_config_entry_with_subentries: MockConfigEntry,
-    mock_init_component_with_subentries: None,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
     mock_create_stream: AsyncMock,
 ) -> None:
     """Test generate_data with structured output raises on invalid JSON."""
@@ -201,13 +205,12 @@ async def test_generate_image_sends_integer_dimensions(
         subentries_data=[
             ConfigSubentryData(
                 data={
-                    CONF_MODEL_TYPE: MODEL_TYPE_IMAGE,
                     CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
                     CONF_IMAGE_WIDTH: 512.0,
                     CONF_IMAGE_HEIGHT: 768.0,
                     CONF_IMAGE_STEPS: 8.0,
                 },
-                subentry_type=SUBENTRY_TYPE_MODEL,
+                subentry_type=SUBENTRY_TYPE_AI_TASK_IMAGE,
                 title="Float Image Model",
                 unique_id=None,
             ),

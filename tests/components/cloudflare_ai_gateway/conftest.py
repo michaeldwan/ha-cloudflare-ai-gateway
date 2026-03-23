@@ -15,7 +15,6 @@ from custom_components.cloudflare_ai_gateway.const import (
     CONF_IMAGE_MODEL,
     CONF_IMAGE_STEPS,
     CONF_IMAGE_WIDTH,
-    CONF_MODEL_TYPE,
     CONF_PROVIDER,
     CONF_RECOMMENDED,
     DEFAULT_IMAGE_HEIGHT,
@@ -23,9 +22,9 @@ from custom_components.cloudflare_ai_gateway.const import (
     DEFAULT_IMAGE_STEPS,
     DEFAULT_IMAGE_WIDTH,
     DOMAIN,
-    MODEL_TYPE_CHAT,
-    MODEL_TYPE_IMAGE,
-    SUBENTRY_TYPE_MODEL,
+    SUBENTRY_TYPE_AI_TASK_DATA,
+    SUBENTRY_TYPE_AI_TASK_IMAGE,
+    SUBENTRY_TYPE_CONVERSATION,
 )
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.const import CONF_LLM_HASS_API
@@ -51,7 +50,7 @@ def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
             CONF_CF_API_TOKEN: "test-cf-token",
         },
         version=1,
-        minor_version=1,
+        minor_version=2,
     )
     entry.add_to_hass(hass)
     return entry
@@ -59,7 +58,7 @@ def mock_config_entry(hass: HomeAssistant) -> MockConfigEntry:
 
 @pytest.fixture
 def mock_config_entry_with_subentries(hass: HomeAssistant) -> MockConfigEntry:
-    """Mock a config entry with a chat model subentry."""
+    """Mock a config entry with a conversation subentry."""
     entry = MockConfigEntry(
         title="Cloudflare AI Gateway",
         domain=DOMAIN,
@@ -69,17 +68,16 @@ def mock_config_entry_with_subentries(hass: HomeAssistant) -> MockConfigEntry:
             CONF_CF_API_TOKEN: "test-cf-token",
         },
         version=1,
-        minor_version=1,
+        minor_version=2,
         subentries_data=[
             ConfigSubentryData(
                 data={
-                    CONF_MODEL_TYPE: MODEL_TYPE_CHAT,
                     CONF_RECOMMENDED: True,
                     CONF_PROVIDER: "openai",
                     CONF_CHAT_MODEL: "gpt-4o-mini",
                     CONF_LLM_HASS_API: [llm.LLM_API_ASSIST],
                 },
-                subentry_type=SUBENTRY_TYPE_MODEL,
+                subentry_type=SUBENTRY_TYPE_CONVERSATION,
                 title="Test Conversation",
                 unique_id=None,
             ),
@@ -91,7 +89,7 @@ def mock_config_entry_with_subentries(hass: HomeAssistant) -> MockConfigEntry:
 
 @pytest.fixture
 def mock_config_entry_no_llm_api(hass: HomeAssistant) -> MockConfigEntry:
-    """Mock a config entry with a chat model subentry but no LLM API configured."""
+    """Mock a config entry with a conversation subentry but no LLM API configured."""
     entry = MockConfigEntry(
         title="Cloudflare AI Gateway",
         domain=DOMAIN,
@@ -101,16 +99,15 @@ def mock_config_entry_no_llm_api(hass: HomeAssistant) -> MockConfigEntry:
             CONF_CF_API_TOKEN: "test-cf-token",
         },
         version=1,
-        minor_version=1,
+        minor_version=2,
         subentries_data=[
             ConfigSubentryData(
                 data={
-                    CONF_MODEL_TYPE: MODEL_TYPE_CHAT,
                     CONF_RECOMMENDED: True,
                     CONF_PROVIDER: "openai",
                     CONF_CHAT_MODEL: "gpt-4o-mini",
                 },
-                subentry_type=SUBENTRY_TYPE_MODEL,
+                subentry_type=SUBENTRY_TYPE_CONVERSATION,
                 title="Test No LLM",
                 unique_id=None,
             ),
@@ -140,8 +137,8 @@ def mock_config_entry_with_assist(
 
 
 @pytest.fixture
-def mock_config_entry_with_image_model(hass: HomeAssistant) -> MockConfigEntry:
-    """Mock a config entry with an image model subentry."""
+def mock_config_entry_with_ai_task_data(hass: HomeAssistant) -> MockConfigEntry:
+    """Mock a config entry with an AI task data subentry."""
     entry = MockConfigEntry(
         title="Cloudflare AI Gateway",
         domain=DOMAIN,
@@ -151,17 +148,46 @@ def mock_config_entry_with_image_model(hass: HomeAssistant) -> MockConfigEntry:
             CONF_CF_API_TOKEN: "test-cf-token",
         },
         version=1,
-        minor_version=1,
+        minor_version=2,
         subentries_data=[
             ConfigSubentryData(
                 data={
-                    CONF_MODEL_TYPE: MODEL_TYPE_IMAGE,
+                    CONF_RECOMMENDED: True,
+                    CONF_PROVIDER: "openai",
+                    CONF_CHAT_MODEL: "gpt-4o-mini",
+                },
+                subentry_type=SUBENTRY_TYPE_AI_TASK_DATA,
+                title="Test AI Task",
+                unique_id=None,
+            ),
+        ],
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+@pytest.fixture
+def mock_config_entry_with_image_model(hass: HomeAssistant) -> MockConfigEntry:
+    """Mock a config entry with an AI task image subentry."""
+    entry = MockConfigEntry(
+        title="Cloudflare AI Gateway",
+        domain=DOMAIN,
+        data={
+            CONF_ACCOUNT_ID: "test-account-id",
+            CONF_GATEWAY_ID: "test-gateway",
+            CONF_CF_API_TOKEN: "test-cf-token",
+        },
+        version=1,
+        minor_version=2,
+        subentries_data=[
+            ConfigSubentryData(
+                data={
                     CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
                     CONF_IMAGE_WIDTH: DEFAULT_IMAGE_WIDTH,
                     CONF_IMAGE_HEIGHT: DEFAULT_IMAGE_HEIGHT,
                     CONF_IMAGE_STEPS: DEFAULT_IMAGE_STEPS,
                 },
-                subentry_type=SUBENTRY_TYPE_MODEL,
+                subentry_type=SUBENTRY_TYPE_AI_TASK_IMAGE,
                 title="Test Image Model",
                 unique_id=None,
             ),
@@ -169,6 +195,14 @@ def mock_config_entry_with_image_model(hass: HomeAssistant) -> MockConfigEntry:
     )
     entry.add_to_hass(hass)
     return entry
+
+
+@pytest.fixture
+async def mock_init_component_with_ai_task_data(
+    hass: HomeAssistant, mock_config_entry_with_ai_task_data: MockConfigEntry
+) -> None:
+    """Initialize integration with AI task data subentry."""
+    await _mock_init(hass, mock_config_entry_with_ai_task_data)()
 
 
 @pytest.fixture
