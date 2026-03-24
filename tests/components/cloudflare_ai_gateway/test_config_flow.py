@@ -77,10 +77,10 @@ async def test_form_creates_entry_with_default_subentries(hass: HomeAssistant) -
 
     # Verify default subentries were created
     subentries = result.get("subentries", ())
-    assert len(subentries) == 2
+    assert len(subentries) == 3
 
     types = {s["subentry_type"] for s in subentries}
-    assert types == {SUBENTRY_TYPE_CONVERSATION, SUBENTRY_TYPE_AI_TASK_DATA}
+    assert types == {SUBENTRY_TYPE_CONVERSATION, SUBENTRY_TYPE_AI_TASK_DATA, SUBENTRY_TYPE_AI_TASK_IMAGE}
 
     for s in subentries:
         if s["subentry_type"] == SUBENTRY_TYPE_CONVERSATION:
@@ -94,6 +94,14 @@ async def test_form_creates_entry_with_default_subentries(hass: HomeAssistant) -
             assert s["data"][CONF_PROVIDER] == DEFAULT_PROVIDER
             assert s["data"][CONF_CHAT_MODEL] == DEFAULT_AI_TASK_DATA_MODEL
             assert s["data"][CONF_RECOMMENDED] is True
+        elif s["subentry_type"] == SUBENTRY_TYPE_AI_TASK_IMAGE:
+            assert s["title"] == "Cloudflare image generation"
+            assert s["data"][CONF_IMAGE_MODEL] == DEFAULT_IMAGE_MODEL
+            assert s["data"][CONF_IMAGE_WIDTH] == DEFAULT_IMAGE_WIDTH
+            assert s["data"][CONF_IMAGE_HEIGHT] == DEFAULT_IMAGE_HEIGHT
+            assert s["data"][CONF_IMAGE_STEPS] == DEFAULT_IMAGE_STEPS
+        else:
+            pytest.fail(f"Unexpected subentry type: {s['subentry_type']}")
 
 
 @pytest.mark.parametrize(

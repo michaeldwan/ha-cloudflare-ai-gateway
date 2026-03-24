@@ -214,6 +214,17 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
                             },
                             "unique_id": None,
                         },
+                        {
+                            "subentry_type": SUBENTRY_TYPE_AI_TASK_IMAGE,
+                            "title": "Cloudflare image generation",
+                            "data": {
+                                CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
+                                CONF_IMAGE_WIDTH: DEFAULT_IMAGE_WIDTH,
+                                CONF_IMAGE_HEIGHT: DEFAULT_IMAGE_HEIGHT,
+                                CONF_IMAGE_STEPS: DEFAULT_IMAGE_STEPS,
+                            },
+                            "unique_id": None,
+                        },
                     ],
                 )
 
