@@ -11,5 +11,5 @@
   "issue_tracker": "https://github.com/michaeldwan/ha-cloudflare-ai-gateway/issues",
   "loggers": ["openai", "httpx"],
   "requirements": ["openai>=2.21.0"],
-  "version": "0.1.4"
+  "version": "0.2.0"
 }
