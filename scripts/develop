@@ -12,4 +12,4 @@ if [ ! -d "${config_dir}/custom_components/cloudflare_ai_gateway" ]; then
 fi
 
 echo "Starting Home Assistant on http://localhost:8123"
-uv run hass -c "${config_dir}" --debug
+uv run hass -c "${config_dir}" --debug --skip-pip

@@ -1,6 +1,8 @@
 [tools]
-python = "3.13"
 uv = "latest"
+
+[settings]
+python.uv_venv_auto = "create|source"
 
 [tasks.setup]
 description = "Install dependencies and configure dev environment"

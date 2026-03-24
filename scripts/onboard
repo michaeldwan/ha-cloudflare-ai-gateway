@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+config_dir="config"
+ha_url="http://localhost:8123"
+username="dev"
+password="dev"
+name="Developer"
+language="en"
+
+# Check if already onboarded
+if [ -f "${config_dir}/.storage/onboarding" ]; then
+    echo "Already onboarded. Delete config/.storage/onboarding to re-run."
+    exit 0
+fi
+
+# Ensure setup has been run
+if [ ! -d "${config_dir}/custom_components/cloudflare_ai_gateway" ]; then
+    scripts/setup
+fi
+
+# Start HA in the background
+echo "Starting Home Assistant..."
+uv run hass -c "${config_dir}" --skip-pip &
+ha_pid=$!
+trap "kill $ha_pid 2>/dev/null" EXIT
+
+# Wait for HA to be ready
+echo "Waiting for Home Assistant to start..."
+for i in $(seq 1 60); do
+    if curl -s "${ha_url}/api/onboarding" >/dev/null 2>&1; then
+        break
+    fi
+    if ! kill -0 "$ha_pid" 2>/dev/null; then
+        echo "Home Assistant exited unexpectedly"
+        exit 1
+    fi
+    sleep 2
+done
+
+# Verify onboarding is available
+onboarding=$(curl -s "${ha_url}/api/onboarding")
+if echo "$onboarding" | grep -q '"done": true'; then
+    echo "Onboarding already completed."
+    kill "$ha_pid" 2>/dev/null
+    exit 0
+fi
+
+echo "Creating user '${username}'..."
+auth_code=$(curl -s -X POST "${ha_url}/api/onboarding/users" \
+    -H "Content-Type: application/json" \
+    -d "{\"client_id\": \"${ha_url}/\", \"name\": \"${name}\", \"username\": \"${username}\", \"password\": \"${password}\", \"language\": \"${language}\"}" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['auth_code'])")
+
+# Exchange auth code for token (needed for remaining steps)
+token=$(curl -s -X POST "${ha_url}/auth/token" \
+    -d "grant_type=authorization_code&code=${auth_code}&client_id=${ha_url}/" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+echo "Completing core config..."
+curl -s -X POST "${ha_url}/api/onboarding/core_config" \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" >/dev/null
+
+echo "Skipping analytics..."
+curl -s -X POST "${ha_url}/api/onboarding/analytics" \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" >/dev/null
+
+echo "Skipping default integrations..."
+curl -s -X POST "${ha_url}/api/onboarding/integration" \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" \
+    -d "{\"client_id\": \"${ha_url}/\", \"redirect_uri\": \"${ha_url}/\"}" >/dev/null
+
+echo ""
+echo "Onboarding complete!"
+echo "  URL:      ${ha_url}"
+echo "  Username: ${username}"
+echo "  Password: ${password}"
+
+# Stop HA
+kill "$ha_pid" 2>/dev/null
+trap - EXIT
+wait "$ha_pid" 2>/dev/null || true
+
+echo ""
+echo "Run 'scripts/develop' to start Home Assistant."
