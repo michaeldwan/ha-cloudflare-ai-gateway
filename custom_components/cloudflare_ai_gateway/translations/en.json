@@ -6,7 +6,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to Cloudflare API.",
-      "gateway_not_found": "Gateway not found. Check your account ID and gateway ID.",
+      "gateway_not_found": "Gateway not found. Check your account ID and gateway name.",
       "invalid_auth": "Invalid Cloudflare API token.",
       "unknown": "An unknown error occurred."
     },
@@ -15,20 +15,20 @@
         "data": {
           "cf_api_token": "Cloudflare API Token"
         },
-        "description": "Your API token is no longer valid. Please enter a new one."
+        "description": "Your API token is no longer valid. Enter a new one."
       },
       "user": {
         "data": {
           "account_id": "Cloudflare Account ID",
-          "gateway_id": "Gateway ID",
+          "gateway_id": "Gateway Name",
           "cf_api_token": "Cloudflare API Token"
         },
         "data_description": {
           "account_id": "Your Cloudflare account ID, found in the dashboard URL.",
-          "gateway_id": "The AI Gateway ID. Use 'default' for the auto-created gateway.",
+          "gateway_id": "The name of your AI Gateway.",
           "cf_api_token": "API token with AI Gateway permissions."
         },
-        "description": "Set up Cloudflare AI Gateway to access 20+ AI providers through a single integration."
+        "description": "Connect to your Cloudflare AI Gateway."
       }
     }
   },
@@ -59,7 +59,7 @@
           "data_description": {
             "provider": "The AI provider to route requests through (e.g., openai, anthropic, google-ai-studio).",
             "chat_model": "The model name at the provider (e.g., gpt-4o-mini, claude-sonnet-4-5).",
-            "prompt": "Instruct how the LLM should respond. This can be a template."
+            "prompt": "Instructions for how the model should respond. Supports templates."
           }
         },
         "advanced": {

@@ -52,7 +52,6 @@ from .const import (
     CONF_TOP_P,
     DEFAULT_AI_TASK_DATA_MODEL,
     DEFAULT_CONVERSATION_MODEL,
-    DEFAULT_GATEWAY_ID,
     DEFAULT_IMAGE_HEIGHT,
     DEFAULT_IMAGE_MODEL,
     DEFAULT_IMAGE_STEPS,
@@ -74,7 +73,7 @@ from .const import (
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_ACCOUNT_ID): str,
-        vol.Required(CONF_GATEWAY_ID, default=DEFAULT_GATEWAY_ID): str,
+        vol.Required(CONF_GATEWAY_ID): str,
         vol.Required(CONF_CF_API_TOKEN): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
     }
 )

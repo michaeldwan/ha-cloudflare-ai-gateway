@@ -34,7 +34,6 @@ CONF_IMAGE_STEPS = "image_steps"
 CONF_CACHE_TTL = "cache_ttl"
 
 # Defaults
-DEFAULT_GATEWAY_ID = "default"
 DEFAULT_PROVIDER = "workers-ai"
 DEFAULT_CONVERSATION_MODEL = "@cf/zai-org/glm-4.7-flash"
 DEFAULT_AI_TASK_DATA_MODEL = "@cf/moonshotai/kimi-k2.5"
