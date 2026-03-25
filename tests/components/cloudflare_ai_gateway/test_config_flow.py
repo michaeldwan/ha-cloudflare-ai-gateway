@@ -84,18 +84,18 @@ async def test_form_creates_entry_with_default_subentries(hass: HomeAssistant) -
 
     for s in subentries:
         if s["subentry_type"] == SUBENTRY_TYPE_CONVERSATION:
-            assert s["title"] == "Cloudflare conversation"
+            assert s["title"] == "GLM 4.7 Flash"
             assert s["data"][CONF_PROVIDER] == DEFAULT_PROVIDER
             assert s["data"][CONF_CHAT_MODEL] == DEFAULT_CONVERSATION_MODEL
             assert s["data"][CONF_RECOMMENDED] is True
             assert s["data"][CONF_LLM_HASS_API] == ["assist"]
         elif s["subentry_type"] == SUBENTRY_TYPE_AI_TASK_DATA:
-            assert s["title"] == "Cloudflare AI task"
+            assert s["title"] == "Kimi K2.5"
             assert s["data"][CONF_PROVIDER] == DEFAULT_PROVIDER
             assert s["data"][CONF_CHAT_MODEL] == DEFAULT_AI_TASK_DATA_MODEL
             assert s["data"][CONF_RECOMMENDED] is True
         elif s["subentry_type"] == SUBENTRY_TYPE_AI_TASK_IMAGE:
-            assert s["title"] == "Cloudflare image generation"
+            assert s["title"] == "FLUX.1 Schnell"
             assert s["data"][CONF_IMAGE_MODEL] == DEFAULT_IMAGE_MODEL
             assert s["data"][CONF_IMAGE_WIDTH] == DEFAULT_IMAGE_WIDTH
             assert s["data"][CONF_IMAGE_HEIGHT] == DEFAULT_IMAGE_HEIGHT

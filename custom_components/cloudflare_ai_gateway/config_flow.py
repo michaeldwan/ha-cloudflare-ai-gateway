@@ -195,7 +195,7 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
                     subentries=[
                         {
                             "subentry_type": SUBENTRY_TYPE_CONVERSATION,
-                            "title": "Cloudflare conversation",
+                            "title": "GLM 4.7 Flash",
                             "data": {
                                 CONF_RECOMMENDED: True,
                                 CONF_PROVIDER: DEFAULT_PROVIDER,
@@ -206,7 +206,7 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                         {
                             "subentry_type": SUBENTRY_TYPE_AI_TASK_DATA,
-                            "title": "Cloudflare AI task",
+                            "title": "Kimi K2.5",
                             "data": {
                                 CONF_RECOMMENDED: True,
                                 CONF_PROVIDER: DEFAULT_PROVIDER,
@@ -216,7 +216,7 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                         {
                             "subentry_type": SUBENTRY_TYPE_AI_TASK_IMAGE,
-                            "title": "Cloudflare image generation",
+                            "title": "FLUX.1 Schnell",
                             "data": {
                                 CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
                                 CONF_IMAGE_WIDTH: DEFAULT_IMAGE_WIDTH,
