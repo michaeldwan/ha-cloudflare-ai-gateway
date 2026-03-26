@@ -5,7 +5,7 @@
 
 Connect your Home Assistant to hundreds of AI models from every major provider using [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/). Out of the box support for 50+ high-performance, cost-effective ([or free!](https://developers.cloudflare.com/workers-ai/platform/pricing/)) open source models running on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/).
 
-<!-- TODO: screenshot of conversation UI -->
+<img src="https://raw.githubusercontent.com/michaeldwan/ha-cloudflare-ai-gateway/main/images/demo.png" alt="Conversation UI demo" width="500">
 
 ## What it does
 
