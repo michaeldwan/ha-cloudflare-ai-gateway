@@ -14,6 +14,7 @@ Connect your Home Assistant to hundreds of AI models from every major provider u
 - **Image models** become AI task entities for on-demand image generation (Flux, Stable Diffusion, etc.)
 - **Streaming** -- real-time token delivery in the conversation UI
 - **Swap providers without reconfiguring** -- switch from Llama to Sonnet to Kimi by adding a new model. Your gateway config, system prompts, and automations stay put. You can also route to different models on the gateway itself.
+- **Usage tracking** -- each model gets diagnostic sensors for requests, input/output tokens, cache hits, and errors. Pair with HA's [utility meter](https://www.home-assistant.io/integrations/utility_meter/) for daily/monthly breakdowns
 - **Caching** -- per-model TTL to skip redundant API calls
 - **Spend limits, rate limiting, and guardrails** -- set daily/weekly/monthly cost caps, request rate limits, and content safety rules in your [AI Gateway dashboard](https://developers.cloudflare.com/ai-gateway/features/). Configured in Cloudflare, enforced before requests hit providers.
 - **Analytics and logging** -- every request is logged with status, latency, and token counts in the gateway dashboard, with the option for zero log retention if you prefer
@@ -74,6 +75,20 @@ From the integration page, click **Add model**:
 - **Image model** -- generates images via Workers AI.
 
 For a quick start, use `workers-ai` as the provider and one of the models below. Each chat model has a system prompt, an [LLM API](https://www.home-assistant.io/integrations/conversation/) selection for tool calling, and optional tuning (temperature, top_p, max tokens, cache TTL).
+
+## Usage sensors
+
+Each model automatically gets diagnostic sensors that track usage from requests made through Home Assistant:
+
+- **Requests** -- total API calls
+- **Input tokens** -- tokens sent to the model
+- **Output tokens** -- tokens received from the model
+- **Cache hits** -- responses served from Cloudflare's cache
+- **Errors** -- failed requests
+
+Image models get requests and errors only (no token counts).
+
+These are `total_increasing` sensors, so you can use HA's [utility meter](https://www.home-assistant.io/integrations/utility_meter/) helper to create daily, weekly, or monthly breakdowns. Stats persist across restarts.
 
 ## Recommended models
 
