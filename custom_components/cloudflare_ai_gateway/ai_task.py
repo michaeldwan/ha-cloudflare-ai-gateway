@@ -33,7 +33,7 @@ from .const import (
     SUBENTRY_TYPE_AI_TASK_DATA,
     SUBENTRY_TYPE_AI_TASK_IMAGE,
 )
-from .entity import CloudflareAIGatewayBaseLLMEntity
+from .entity import CloudflareAIGatewayBaseLLMEntity, record_error, record_success
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigSubentry
@@ -163,6 +163,9 @@ class CloudflareAIGatewayImageTaskEntity(
             task.instructions[:100],
         )
 
+        subentry_id = self.subentry.subentry_id
+        model_stats = self.entry.runtime_data.model_stats.get(subentry_id)
+
         client = get_async_client(self.hass)
         try:
             response = await client.post(
@@ -183,6 +186,7 @@ class CloudflareAIGatewayImageTaskEntity(
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as err:
+            record_error(self.hass, model_stats, subentry_id)
             status = err.response.status_code
             if status == 401:
                 LOGGER.error("Authentication failed for image generation: %s", err)
@@ -209,6 +213,7 @@ class CloudflareAIGatewayImageTaskEntity(
             LOGGER.error("Error generating image (HTTP %s)%s", status, detail or f": {err}")
             raise HomeAssistantError(f"Error generating image{detail or ' via Cloudflare AI Gateway'}") from err
         except (httpx.ConnectError, httpx.TimeoutException) as err:
+            record_error(self.hass, model_stats, subentry_id)
             LOGGER.error("Connection error generating image: %s", err)
             raise HomeAssistantError("Cannot reach Cloudflare AI Gateway") from err
 
@@ -225,6 +230,8 @@ class CloudflareAIGatewayImageTaskEntity(
 
         image_data = base64.b64decode(image_b64)
         LOGGER.debug("Image generated successfully: %d bytes", len(image_data))
+
+        record_success(self.hass, model_stats, subentry_id)
 
         chat_log.async_add_assistant_content_without_tools(
             conversation.AssistantContent(

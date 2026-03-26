@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict
 
 import httpx
 
@@ -12,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.httpx_client import get_async_client
+from homeassistant.helpers.storage import Store
 
 from .config_flow import ModelNotFound, validate_model
 from .const import (
@@ -21,16 +23,21 @@ from .const import (
     CONF_IMAGE_MODEL,
     DOMAIN,
     LOGGER,
+    STORAGE_KEY_STATS,
+    STORAGE_VERSION,
     SUBENTRY_TYPE_AI_TASK_DATA,
     SUBENTRY_TYPE_AI_TASK_IMAGE,
     SUBENTRY_TYPE_CONVERSATION,
+    TRACKED_SUBENTRY_TYPES,
     WORKERS_AI_MODEL_PREFIXES,
+    CloudflareAIGatewayRuntimeData,
+    ModelStats,
 )
 
-PLATFORMS = (Platform.AI_TASK, Platform.CONVERSATION)
+PLATFORMS = (Platform.AI_TASK, Platform.CONVERSATION, Platform.SENSOR)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-type CloudflareAIGatewayConfigEntry = ConfigEntry[None]
+type CloudflareAIGatewayConfigEntry = ConfigEntry[CloudflareAIGatewayRuntimeData]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CloudflareAIGatewayConfigEntry) -> bool:
@@ -90,6 +97,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: CloudflareAIGatewayConfi
     if validation_tasks:
         await asyncio.gather(*validation_tasks)
 
+    # Initialize runtime data with per-model stats
+    store: Store[dict[str, dict[str, int]]] = Store(
+        hass, STORAGE_VERSION, STORAGE_KEY_STATS.format(entry_id=entry.entry_id)
+    )
+    stored_stats = await store.async_load() or {}
+
+    model_stats: dict[str, ModelStats] = {}
+    for subentry_id, subentry in entry.subentries.items():
+        if subentry.subentry_type in TRACKED_SUBENTRY_TYPES:
+            if subentry_id in stored_stats:
+                try:
+                    model_stats[subentry_id] = ModelStats(**stored_stats[subentry_id])
+                except TypeError:
+                    model_stats[subentry_id] = ModelStats()
+            else:
+                model_stats[subentry_id] = ModelStats()
+
+    entry.runtime_data = CloudflareAIGatewayRuntimeData(model_stats=model_stats, store=store)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
@@ -104,4 +130,10 @@ async def _async_entry_updated(hass: HomeAssistant, entry: CloudflareAIGatewayCo
 
 async def async_unload_entry(hass: HomeAssistant, entry: CloudflareAIGatewayConfigEntry) -> bool:
     """Unload Cloudflare AI Gateway."""
+    # Persist model stats before unloading
+    runtime_data = entry.runtime_data
+    if runtime_data.store is not None:
+        stats_data = {subentry_id: asdict(stats) for subentry_id, stats in runtime_data.model_stats.items()}
+        await runtime_data.store.async_save(stats_data)
+
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

@@ -99,7 +99,7 @@ async def test_generate_data_structured(
     assert result.data == {"name": "test", "value": 42}
 
     # Verify response_format was passed to the API with strict mode
-    call_kwargs = mock_create_stream.call_args[1]
+    call_kwargs = mock_create_stream.last_call_kwargs
     response_format = call_kwargs["response_format"]
     assert response_format["type"] == "json_schema"
     assert response_format["json_schema"]["strict"] is True

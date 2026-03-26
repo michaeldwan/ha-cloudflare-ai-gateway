@@ -161,8 +161,9 @@ async def test_setup_with_subentries_creates_entities(
 
     entity_registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(entity_registry, mock_config_entry_with_subentries.entry_id)
-    assert len(entities) == 1
-    assert entities[0].domain == "conversation"
+    assert len(entities) == 6  # 1 conversation + 5 sensors
+    domains = {e.domain for e in entities}
+    assert domains == {"conversation", "sensor"}
 
 
 async def test_subentry_added_reloads_entry(
@@ -207,7 +208,7 @@ async def test_subentry_added_reloads_entry(
     # After reload, the new conversation subentry's entity should exist
     assert mock_config_entry.state is ConfigEntryState.LOADED
     entities = er.async_entries_for_config_entry(entity_registry, mock_config_entry.entry_id)
-    assert len(entities) == 1
+    assert len(entities) == 6  # 1 conversation + 5 sensors
 
 
 async def test_device_created_per_subentry(
