@@ -15,14 +15,11 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: Validate tag matches manifest version
-        run: |
-          tag_version="${GITHUB_REF#refs/tags/v}"
-          manifest_version=$(python3 -c "import json; print(json.load(open('custom_components/cloudflare_ai_gateway/manifest.json'))['version'])")
-          if [ "$tag_version" != "$manifest_version" ]; then
-            echo "::error::Tag version ($tag_version) does not match manifest.json version ($manifest_version)"
-            exit 1
-          fi
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Stamp version from tag
+        run: scripts/stamp-version
 
       - name: Package integration
         run: |

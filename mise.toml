@@ -31,35 +31,16 @@ run = "uv run ruff format custom_components/ tests/"
 description = "Run all checks (lint, format, tests) — same as CI"
 depends = ["lint", "test"]
 
-[tasks."version:bump"]
-description = "Increment patch version and sync to manifests"
+[tasks.release]
+description = "Validate, tag a new release, and push"
+usage = 'arg "<version>"'
+depends = ["validate"]
 run = """
-version=$(cat VERSION.txt | tr -d '[:space:]')
-IFS='.' read -r major minor patch <<< "$version"
-new_version="$major.$minor.$((patch + 1))"
-echo "$new_version" > VERSION.txt
-mise run version:sync
-"""
-
-[tasks."version:sync"]
-description = "Propagate VERSION.txt to manifest.json and pyproject.toml"
-run = """
-version=$(cat VERSION.txt | tr -d '[:space:]')
-sed -i '' 's/"version": "[^"]*"/"version": "'"$version"'"/' custom_components/cloudflare_ai_gateway/manifest.json
-sed -i '' 's/^version = "[^"]*"/version = "'"$version"'"/' pyproject.toml
-echo "Version synced: $version"
-"""
-
-[tasks."ha:local-deploy"]
-description = "Deploy integration to Home Assistant via SMB (set HA_HOST, HA_MOUNT_PATH in mise.local.toml)"
-run = "scripts/local-deploy"
-
-[tasks."ha:release"]
-description = "Validate, bump version, commit, and deploy to Home Assistant"
-depends = ["validate", "version:bump"]
-run = """
-version=$(cat VERSION.txt | tr -d '[:space:]')
-git add VERSION.txt custom_components/cloudflare_ai_gateway/manifest.json pyproject.toml uv.lock
-git commit -m "Bump version to $version"
-mise run ha:local-deploy
+version="$usage_version"
+if ! echo "$version" | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+$'; then
+  echo "Invalid version: $version (expected X.Y.Z)" >&2
+  exit 1
+fi
+git tag "v$version"
+git push origin "v$version"
 """

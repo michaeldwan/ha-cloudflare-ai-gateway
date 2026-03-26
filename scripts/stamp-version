@@ -1,0 +1,36 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# ///
+
+"""Derive version from git tags and write it into manifest.json and pyproject.toml.
+
+On a tagged commit:       0.2.2
+After a tag (dev build):  0.2.2+3.gabc1234
+No tags at all:           0.0.0-dev
+"""
+
+import re
+import subprocess
+from pathlib import Path
+
+root = Path(__file__).resolve().parent.parent
+
+try:
+    desc = subprocess.run(
+        ["git", "describe", "--tags", "--match", "v*"],
+        capture_output=True, text=True, check=True, cwd=root,
+    ).stdout.strip()
+    # v0.2.2 -> 0.2.2, v0.2.2-3-gabc1234 -> 0.2.2+3.gabc1234
+    version = re.sub(r"-", ".", re.sub(r"-", "+", desc.removeprefix("v"), count=1))
+except subprocess.CalledProcessError:
+    version = "0.0.0-dev"
+
+for path, pattern, repl in [
+    ("custom_components/cloudflare_ai_gateway/manifest.json", r'"version": "[^"]*"', f'"version": "{version}"'),
+    ("pyproject.toml", r'^version = "[^"]*"', f'version = "{version}"'),
+]:
+    filepath = root / path
+    filepath.write_text(re.sub(pattern, repl, filepath.read_text(), count=1, flags=re.MULTILINE))
+
+print(version)
