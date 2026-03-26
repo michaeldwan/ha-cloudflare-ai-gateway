@@ -46,7 +46,7 @@ Go to the AI Gateway config by clicking Build > AI > AI Gateway in the sidebar o
 
 On your gateway page, click the "Create token" button on the right sidebar. The default permissions are:
 
-<img src="images/ai-gateway-token.png" alt="AI Gateway token permissions" width="200">
+<img src="https://raw.githubusercontent.com/michaeldwan/ha-cloudflare-ai-gateway/main/images/ai-gateway-token.png" alt="AI Gateway token permissions" width="200">
 
 This is the token you'll use to authenticate the Home Assistant integration to this gateway.
 
@@ -60,11 +60,11 @@ Or manually: **Settings > Devices & Services > Add Integration > Cloudflare AI G
 
 Enter your Account ID, gateway name, and API token.
 
-<img src="images/config-dialog.png" alt="Config dialog" width="500">
+<img src="https://raw.githubusercontent.com/michaeldwan/ha-cloudflare-ai-gateway/main/images/config-dialog.png" alt="Config dialog" width="500">
 
 This will create 3 Workers AI models to get you started -- a general LLM model for conversation, a more capable reasoning model for specialized tasks, and an image generation model. You can customize or delete these and add your own models in the integration config page.
 
-<img src="images/integration-page.png" alt="Integration page with models" width="700">
+<img src="https://raw.githubusercontent.com/michaeldwan/ha-cloudflare-ai-gateway/main/images/integration-page.png" alt="Integration page with models" width="700">
 
 ## Adding a model
 
