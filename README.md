@@ -22,11 +22,9 @@ Connect your Home Assistant to hundreds of AI models from every major provider u
 
 ### HACS (recommended)
 
-1. Open HACS in your Home Assistant instance
-2. Click the three-dot menu > **Custom repositories**
-3. Add `michaeldwan/ha-cloudflare-ai-gateway` as an **Integration**
-4. Search for "Cloudflare AI Gateway" and install it
-5. Restart Home Assistant
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=michaeldwan&repository=ha-cloudflare-ai-gateway&category=integration)
+
+Or manually: open HACS, click the three-dot menu > **Custom repositories**, add `michaeldwan/ha-cloudflare-ai-gateway` as an **Integration**, search for "Cloudflare AI Gateway" and install it, then restart Home Assistant.
 
 ### Manual
 
@@ -56,7 +54,11 @@ For Workers AI models, this is the only credential you need. If you're using thi
 
 ### 4. Add the integration
 
-In Home Assistant: **Settings > Devices & Services > Add Integration > Cloudflare AI Gateway**. Enter your Account ID, gateway name, and API token.
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=cloudflare_ai_gateway)
+
+Or manually: **Settings > Devices & Services > Add Integration > Cloudflare AI Gateway**. 
+
+Enter your Account ID, gateway name, and API token.
 
 <img src="images/config-dialog.png" alt="Config dialog" width="500">
 
