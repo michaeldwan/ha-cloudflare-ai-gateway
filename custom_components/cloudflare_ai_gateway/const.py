@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 import logging
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.util import dt as dt_util
+
 if TYPE_CHECKING:
     from homeassistant.helpers.storage import Store
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -89,15 +91,31 @@ STORAGE_KEY_STATS = f"{DOMAIN}_{{entry_id}}_stats"
 STORAGE_VERSION = 1
 
 
+def today_local_date() -> str:
+    """Return today's date string in the user's local timezone."""
+    return dt_util.start_of_local_day().date().isoformat()
+
+
 @dataclass
 class ModelStats:
-    """Accumulated usage statistics for a single model."""
+    """Usage statistics for a single model, reset daily."""
 
     total_requests: int = 0
     total_errors: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
     cache_hits: int = 0
+    reset_date: str = ""
+
+    def maybe_reset(self, today: str) -> None:
+        """Reset counters if we've crossed into a new day."""
+        if self.reset_date != today:
+            self.total_requests = 0
+            self.total_errors = 0
+            self.input_tokens = 0
+            self.output_tokens = 0
+            self.cache_hits = 0
+            self.reset_date = today
 
 
 @dataclass

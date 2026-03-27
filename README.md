@@ -93,7 +93,7 @@ Each model automatically gets diagnostic sensors that track usage from requests 
 
 Image models don't have tokens, so they get requests and errors only.
 
-These are `total_increasing` sensors, so you can use HA's [utility meter](https://www.home-assistant.io/integrations/utility_meter/) helper to create daily, weekly, or monthly breakdowns. Stats persist across restarts.
+All sensors reset daily at midnight and HA records long-term statistics automatically, so you can view daily, weekly, or monthly breakdowns in the history UI.
 
 ### Cost tracking
 

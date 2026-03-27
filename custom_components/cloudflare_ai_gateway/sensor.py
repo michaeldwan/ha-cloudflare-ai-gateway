@@ -32,7 +32,7 @@ BASE_SENSOR_DESCRIPTIONS: tuple[CloudflareAIGatewaySensorDescription, ...] = (
     CloudflareAIGatewaySensorDescription(
         key="requests",
         translation_key="requests",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="requests",
         value_fn=lambda stats: stats.total_requests,
@@ -40,7 +40,7 @@ BASE_SENSOR_DESCRIPTIONS: tuple[CloudflareAIGatewaySensorDescription, ...] = (
     CloudflareAIGatewaySensorDescription(
         key="errors",
         translation_key="errors",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="errors",
         value_fn=lambda stats: stats.total_errors,
@@ -52,7 +52,7 @@ CHAT_SENSOR_DESCRIPTIONS: tuple[CloudflareAIGatewaySensorDescription, ...] = (
     CloudflareAIGatewaySensorDescription(
         key="input_tokens",
         translation_key="input_tokens",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="tokens",
         value_fn=lambda stats: stats.input_tokens,
@@ -60,7 +60,7 @@ CHAT_SENSOR_DESCRIPTIONS: tuple[CloudflareAIGatewaySensorDescription, ...] = (
     CloudflareAIGatewaySensorDescription(
         key="output_tokens",
         translation_key="output_tokens",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="tokens",
         value_fn=lambda stats: stats.output_tokens,
@@ -68,7 +68,7 @@ CHAT_SENSOR_DESCRIPTIONS: tuple[CloudflareAIGatewaySensorDescription, ...] = (
     CloudflareAIGatewaySensorDescription(
         key="cache_hits",
         translation_key="cache_hits",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        state_class=SensorStateClass.TOTAL,
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="requests",
         value_fn=lambda stats: stats.cache_hits,
@@ -135,6 +135,11 @@ class CloudflareAIGatewayUsageSensor(SensorEntity):
         if stats is None:
             return 0
         return self.entity_description.value_fn(stats)
+
+    @property
+    def last_reset(self) -> datetime:
+        """Return start of today in the user's local timezone."""
+        return dt_util.start_of_local_day()
 
     async def async_added_to_hass(self) -> None:
         """Register dispatcher listener for stats updates."""

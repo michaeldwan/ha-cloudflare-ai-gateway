@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import openai
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.cloudflare_ai_gateway.const import ModelStats
 from homeassistant.components import conversation
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -58,11 +59,12 @@ async def test_sensors_have_correct_state_class(
     mock_config_entry_with_subentries: MockConfigEntry,
     mock_init_component_with_subentries: None,
 ) -> None:
-    """Test that all sensors use TOTAL_INCREASING state class."""
+    """Test that all sensors use TOTAL state class with daily reset."""
     for sensor_id in hass.states.async_entity_ids("sensor"):
         state = hass.states.get(sensor_id)
         assert state is not None
-        assert state.attributes.get("state_class") == "total_increasing"
+        assert state.attributes.get("state_class") == "total"
+        assert state.attributes.get("last_reset") is not None
 
 
 async def test_sensors_are_diagnostic(
@@ -196,6 +198,35 @@ async def test_sensors_track_cache_hits(
     subentry_id = next(iter(mock_config_entry_with_subentries.subentries))
     stats = mock_config_entry_with_subentries.runtime_data.model_stats[subentry_id]
     assert stats.cache_hits == 1
+
+
+async def test_sensors_reset_daily(
+    hass: HomeAssistant,
+    mock_config_entry_with_subentries: MockConfigEntry,
+    mock_init_component_with_subentries: None,
+) -> None:
+    """Test that model stats reset when the date changes."""
+    stats = ModelStats(
+        total_requests=5,
+        total_errors=1,
+        input_tokens=100,
+        output_tokens=50,
+        cache_hits=2,
+        reset_date="2020-01-01",
+    )
+
+    # Same day — no reset
+    stats.maybe_reset("2020-01-01")
+    assert stats.total_requests == 5
+
+    # New day — counters reset
+    stats.maybe_reset("2020-01-02")
+    assert stats.total_requests == 0
+    assert stats.total_errors == 0
+    assert stats.input_tokens == 0
+    assert stats.output_tokens == 0
+    assert stats.cache_hits == 0
+    assert stats.reset_date == "2020-01-02"
 
 
 # --- Gateway cost sensor ---

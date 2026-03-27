@@ -32,6 +32,7 @@ from .const import (
     LOGGER,
     SUBENTRY_TYPE_AI_TASK_DATA,
     SUBENTRY_TYPE_AI_TASK_IMAGE,
+    today_local_date,
 )
 from .entity import CloudflareAIGatewayBaseLLMEntity, record_error, record_success
 
@@ -165,6 +166,8 @@ class CloudflareAIGatewayImageTaskEntity(
 
         subentry_id = self.subentry.subentry_id
         model_stats = self.entry.runtime_data.model_stats.get(subentry_id)
+        if model_stats is not None:
+            model_stats.maybe_reset(today_local_date())
 
         client = get_async_client(self.hass)
         try:

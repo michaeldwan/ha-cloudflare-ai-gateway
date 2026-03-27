@@ -38,6 +38,7 @@ from .const import (
     RECOMMENDED_TOP_P,
     SIGNAL_MODEL_STATS_UPDATED,
     ModelStats,
+    today_local_date,
 )
 
 if TYPE_CHECKING:
@@ -314,6 +315,8 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
 
         subentry_id = self.subentry.subentry_id
         model_stats = self.entry.runtime_data.model_stats.get(subentry_id)
+        if model_stats is not None:
+            model_stats.maybe_reset(today_local_date())
         cache_hit = False
 
         # To prevent infinite loops, we limit the number of iterations
