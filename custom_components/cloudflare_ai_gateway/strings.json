@@ -32,6 +32,28 @@
       }
     }
   },
+  "entity": {
+    "sensor": {
+      "requests": {
+        "name": "Requests"
+      },
+      "input_tokens": {
+        "name": "Input tokens"
+      },
+      "output_tokens": {
+        "name": "Output tokens"
+      },
+      "cache_hits": {
+        "name": "Cache hits"
+      },
+      "errors": {
+        "name": "Errors"
+      },
+      "cost_today": {
+        "name": "Cost today"
+      }
+    }
+  },
   "config_subentries": {
     "conversation": {
       "abort": {

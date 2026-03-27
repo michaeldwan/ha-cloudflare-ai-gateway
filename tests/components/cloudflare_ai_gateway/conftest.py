@@ -3,6 +3,7 @@
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -228,10 +229,19 @@ def _mock_init(hass, entry):
                 "custom_components.cloudflare_ai_gateway.validate_model",
                 new_callable=AsyncMock,
             ),
+            patch(
+                "custom_components.cloudflare_ai_gateway.coordinator.get_async_client",
+            ) as mock_gql_client,
         ):
             mock_http = AsyncMock()
             mock_get_client.return_value = mock_http
             mock_http.get.return_value = mock_response
+
+            # Make the analytics coordinator fail so it's skipped
+            mock_gql_http = AsyncMock()
+            mock_gql_client.return_value = mock_gql_http
+            mock_gql_http.post.side_effect = httpx.TimeoutException("mock")
+
             await hass.config_entries.async_setup(entry.entry_id)
             await hass.async_block_till_done()
 
@@ -260,7 +270,7 @@ async def setup_ha(hass: HomeAssistant) -> None:
 
 @pytest.fixture
 def mock_create_stream() -> Generator[AsyncMock]:
-    """Mock streaming chat completion response."""
+    """Mock streaming chat completion response via with_streaming_response."""
 
     class AsyncStreamHelper:
         """Helper to simulate async streaming."""
@@ -304,16 +314,75 @@ def mock_create_stream() -> Generator[AsyncMock]:
         mock_client_class.return_value = mock_client
 
         mock_create = AsyncMock()
-        mock_client.chat.completions.create = mock_create
 
-        # Default: simple text response
-        mock_create.return_value = AsyncStreamHelper(
+        # Default response headers (can be overridden per test)
+        mock_create.response_headers = {}
+
+        default_stream = AsyncStreamHelper(
             [
                 make_text_chunk("Hello!", role="assistant"),
                 make_text_chunk(None, finish_reason="stop"),
                 make_usage_chunk(),
             ]
         )
+
+        # Mock the with_streaming_response.create async context manager
+        class MockStreamingResponse:
+            """Mock for the async context manager returned by with_streaming_response.create."""
+
+            def __init__(self, stream_or_error):
+                self._stream_or_error = stream_or_error
+
+            @property
+            def headers(self):
+                return mock_create.response_headers
+
+            async def parse(self):
+                return self._stream_or_error
+
+            async def close(self):
+                pass
+
+        class MockStreamingContextManager:
+            """Async context manager wrapping MockStreamingResponse."""
+
+            def __init__(self, stream_or_error):
+                self._response = MockStreamingResponse(stream_or_error)
+
+            async def __aenter__(self):
+                # If side_effect is set, it will have already raised before we get here
+                return self._response
+
+            async def __aexit__(self, *args):
+                await self._response.close()
+
+        def streaming_create_side_effect(**kwargs):
+            """Return an async context manager that yields the stream."""
+            # Record call args so tests can inspect via mock_create.last_call_kwargs
+            mock_create.last_call_kwargs = kwargs
+            if mock_create.side_effect is not None:
+                # For error side effects, we need them to raise during __aenter__
+                side_effect = mock_create.side_effect
+                if callable(side_effect) and not isinstance(side_effect, type):
+                    stream = side_effect(**kwargs)
+                    return MockStreamingContextManager(stream)
+                if isinstance(side_effect, type) and issubclass(side_effect, BaseException):
+                    raise side_effect()
+                if isinstance(side_effect, BaseException):
+                    raise side_effect
+
+            if mock_create.return_value is not None:
+                return MockStreamingContextManager(mock_create.return_value)
+            return MockStreamingContextManager(default_stream)
+
+        mock_wsr_create = MagicMock(side_effect=streaming_create_side_effect)
+        mock_client.chat.completions.with_streaming_response.create = mock_wsr_create
+
+        # Keep mock_create as the control surface for tests:
+        # - mock_create.return_value = AsyncStreamHelper([...]) to set default stream
+        # - mock_create.side_effect = error to raise during create
+        # - mock_create.response_headers = {"cf-aig-cache-status": "HIT"}
+        mock_create.return_value = default_stream
 
         # Attach helpers for custom responses
         mock_create.make_text_chunk = make_text_chunk

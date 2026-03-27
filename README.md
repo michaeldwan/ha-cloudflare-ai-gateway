@@ -14,6 +14,7 @@ Connect your Home Assistant to hundreds of AI models from every major provider u
 - **Image models** become AI task entities for on-demand image generation (Flux, Stable Diffusion, etc.)
 - **Streaming** -- real-time token delivery in the conversation UI
 - **Swap providers without reconfiguring** -- switch from Llama to Sonnet to Kimi by adding a new model. Your gateway config, system prompts, and automations stay put. You can also route to different models on the gateway itself.
+- **Usage tracking** -- each model gets diagnostic sensors for requests, input/output tokens, cache hits, and errors. Pair with HA's [utility meter](https://www.home-assistant.io/integrations/utility_meter/) for daily/monthly breakdowns
 - **Caching** -- per-model TTL to skip redundant API calls
 - **Spend limits, rate limiting, and guardrails** -- set daily/weekly/monthly cost caps, request rate limits, and content safety rules in your [AI Gateway dashboard](https://developers.cloudflare.com/ai-gateway/features/). Configured in Cloudflare, enforced before requests hit providers.
 - **Analytics and logging** -- every request is logged with status, latency, and token counts in the gateway dashboard, with the option for zero log retention if you prefer
@@ -48,9 +49,14 @@ On your gateway page, click the "Create token" button on the right sidebar. The 
 
 <img src="https://raw.githubusercontent.com/michaeldwan/ha-cloudflare-ai-gateway/main/images/ai-gateway-token.png" alt="AI Gateway token permissions" width="200">
 
+> [!NOTE]
+> To enable cost tracking, add **Account > Account Analytics > Read** to the token (see [Usage sensors](#cost-tracking)).
+
 This is the token you'll use to authenticate the Home Assistant integration to this gateway.
 
-For Workers AI models, this is the only credential you need. If you're using third-party providers (OpenAI, Anthropic, Google, etc.) and don't want consolidated billing, you'll need to add API keys in the "Provider Keys" section of your gateway settings.
+For Workers AI models, this is the only credential you need. 
+
+If you're using third-party providers (OpenAI, Anthropic, Google, etc.) and don't want consolidated billing, you'll need to add API keys in the "Provider Keys" section of your gateway settings.
 
 ### 4. Add the integration
 
@@ -74,6 +80,26 @@ From the integration page, click **Add model**:
 - **Image model** -- generates images via Workers AI.
 
 For a quick start, use `workers-ai` as the provider and one of the models below. Each chat model has a system prompt, an [LLM API](https://www.home-assistant.io/integrations/conversation/) selection for tool calling, and optional tuning (temperature, top_p, max tokens, cache TTL).
+
+## Usage sensors
+
+Each model automatically gets diagnostic sensors that track usage from requests made through Home Assistant:
+
+- **Requests** -- total API calls
+- **Input tokens** -- tokens sent to the model
+- **Output tokens** -- tokens received from the model
+- **Cache hits** -- responses served from Cloudflare's cache
+- **Errors** -- failed requests
+
+Image models don't have tokens, so they get requests and errors only.
+
+All sensors reset daily at midnight and HA records long-term statistics automatically, so you can view daily, weekly, or monthly breakdowns in the history UI.
+
+### Cost tracking
+
+If your API token has the **Account Analytics: Read** permission, a **Cost today** sensor appears on a gateway-level device. It polls Cloudflare's GraphQL analytics API every 5 minutes and resets daily at midnight. This is the same cost data shown in the AI Gateway dashboard.
+
+To enable it, edit your API token in the Cloudflare dashboard and add **Account > Account Analytics > Read**. The integration detects this automatically on startup -- no reconfiguration needed, just restart HA.
 
 ## Recommended models
 

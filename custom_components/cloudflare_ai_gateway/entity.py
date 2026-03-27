@@ -15,6 +15,7 @@ from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, llm
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.httpx_client import get_async_client
 from homeassistant.helpers.json import json_dumps
@@ -35,9 +36,14 @@ from .const import (
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
+    SIGNAL_MODEL_STATS_UPDATED,
+    ModelStats,
+    today_local_date,
 )
 
 if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
     from . import CloudflareAIGatewayConfigEntry
 
 # Max number of back and forth with the LLM to generate a response
@@ -101,23 +107,21 @@ def _convert_content_to_messages(
 async def _transform_stream(
     chat_log: conversation.ChatLog,
     response: openai.AsyncStream,
+    model_stats: ModelStats | None = None,
 ) -> AsyncGenerator[conversation.AssistantContentDeltaDict | conversation.ToolResultContentDeltaDict]:
     """Transform a Chat Completions stream into HA format."""
     started = False
     current_tool_calls: dict[int, dict[str, str]] = {}
+    last_usage = None
 
     async for chunk in response:
+        # Track the last usage chunk — CF gateway may include usage on
+        # multiple chunks (with or without choices). The last one seen
+        # is the most complete.
+        if chunk.usage:
+            last_usage = chunk.usage
+
         if not chunk.choices:
-            # Final chunk with usage stats
-            if chunk.usage:
-                chat_log.async_trace(
-                    {
-                        "stats": {
-                            "input_tokens": chunk.usage.prompt_tokens,
-                            "output_tokens": chunk.usage.completion_tokens,
-                        }
-                    }
-                )
             continue
 
         choice = chunk.choices[0]
@@ -175,6 +179,20 @@ async def _transform_stream(
 
         if finish_reason == "length":
             raise HomeAssistantError("Response truncated: max output tokens reached")
+
+    # Record usage from the last chunk that contained it
+    if last_usage:
+        chat_log.async_trace(
+            {
+                "stats": {
+                    "input_tokens": last_usage.prompt_tokens,
+                    "output_tokens": last_usage.completion_tokens,
+                }
+            }
+        )
+        if model_stats is not None:
+            model_stats.input_tokens += last_usage.prompt_tokens
+            model_stats.output_tokens += last_usage.completion_tokens
 
 
 def _add_additional_properties_false(schema: dict[str, Any]) -> None:
@@ -295,53 +313,104 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
 
         LOGGER.debug("Calling %s with %d messages", model, len(messages))
 
+        subentry_id = self.subentry.subentry_id
+        model_stats = self.entry.runtime_data.model_stats.get(subentry_id)
+        if model_stats is not None:
+            model_stats.maybe_reset(today_local_date())
+        cache_hit = False
+
         # To prevent infinite loops, we limit the number of iterations
         for _iteration in range(MAX_TOOL_ITERATIONS):
             try:
-                stream = await client.chat.completions.create(**model_args)
+                async with client.chat.completions.with_streaming_response.create(
+                    **model_args,
+                ) as response:
+                    if response.headers.get("cf-aig-cache-status") == "HIT":
+                        cache_hit = True
+                    stream = await response.parse()
 
-                new_content = [
-                    content
-                    async for content in chat_log.async_add_delta_content_stream(
-                        self.entity_id,
-                        _transform_stream(chat_log, stream),
-                    )
-                ]
-                messages.extend(_convert_content_to_messages(new_content))
-                model_args["messages"] = messages
+                    new_content = [
+                        content
+                        async for content in chat_log.async_add_delta_content_stream(
+                            self.entity_id,
+                            _transform_stream(chat_log, stream, model_stats),
+                        )
+                    ]
+                    messages.extend(_convert_content_to_messages(new_content))
+                    model_args["messages"] = messages
 
             except openai.AuthenticationError as err:
                 LOGGER.error("Authentication error with Cloudflare AI Gateway: %s", err)
                 self.entry.async_start_reauth(self.hass)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError("Authentication failed. Check your Cloudflare API token") from err
             except openai.NotFoundError as err:
                 LOGGER.error("Model not found: %s — %s", model, err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError(
                     f"Model '{model}' not found. Check the model name in your configuration"
                 ) from err
             except openai.PermissionDeniedError as err:
                 LOGGER.error("Permission denied for model %s: %s", model, err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError(
                     f"Permission denied for '{model}'. "
                     "Check that your provider API key is configured in Cloudflare AI Gateway"
                 ) from err
             except openai.BadRequestError as err:
                 LOGGER.error("Bad request for model %s: %s", model, err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError(f"Bad request to '{model}': {err.message}") from err
             except openai.RateLimitError as err:
                 LOGGER.error("Rate limited: %s", err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError("Rate limited by provider") from err
             except openai.APITimeoutError as err:
                 LOGGER.error("Request to Cloudflare AI Gateway timed out: %s", err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError("Request timed out") from err
             except openai.APIConnectionError as err:
                 LOGGER.error("Cannot reach Cloudflare AI Gateway: %s", err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError("Cannot reach Cloudflare AI Gateway") from err
             except openai.OpenAIError as err:
                 LOGGER.error("Error talking to Cloudflare AI Gateway: %s", err)
+                record_error(self.hass, model_stats, subentry_id)
                 raise HomeAssistantError("Error talking to Cloudflare AI Gateway") from err
 
             if not chat_log.unresponded_tool_results:
                 break
         else:
             LOGGER.warning("Tool call iteration limit (%d) reached", MAX_TOOL_ITERATIONS)
+
+        # Update stats once after all iterations complete
+        record_success(self.hass, model_stats, subentry_id, cache_hit=cache_hit)
+
+
+def record_success(
+    hass: HomeAssistant,
+    model_stats: ModelStats | None,
+    subentry_id: str,
+    *,
+    cache_hit: bool = False,
+) -> None:
+    """Record a successful request in model stats and notify sensors."""
+    if model_stats is None:
+        return
+    model_stats.total_requests += 1
+    if cache_hit:
+        model_stats.cache_hits += 1
+    async_dispatcher_send(
+        hass,
+        SIGNAL_MODEL_STATS_UPDATED.format(subentry_id=subentry_id),
+    )
+
+
+def record_error(hass: HomeAssistant, model_stats: ModelStats | None, subentry_id: str) -> None:
+    """Record an error in model stats and notify sensors."""
+    if model_stats is not None:
+        model_stats.total_errors += 1
+        async_dispatcher_send(
+            hass,
+            SIGNAL_MODEL_STATS_UPDATED.format(subentry_id=subentry_id),
+        )

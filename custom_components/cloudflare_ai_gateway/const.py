@@ -1,6 +1,16 @@
 """Constants for the Cloudflare AI Gateway integration."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 import logging
+from typing import TYPE_CHECKING, Any
+
+from homeassistant.util import dt as dt_util
+
+if TYPE_CHECKING:
+    from homeassistant.helpers.storage import Store
+    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 DOMAIN = "cloudflare_ai_gateway"
 LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -14,6 +24,10 @@ CONF_CF_API_TOKEN = "cf_api_token"
 SUBENTRY_TYPE_CONVERSATION = "conversation"
 SUBENTRY_TYPE_AI_TASK_DATA = "ai_task_data"
 SUBENTRY_TYPE_AI_TASK_IMAGE = "ai_task_image"
+
+# Subentry types that get usage tracking sensors
+CHAT_SUBENTRY_TYPES = (SUBENTRY_TYPE_CONVERSATION, SUBENTRY_TYPE_AI_TASK_DATA)
+TRACKED_SUBENTRY_TYPES = (*CHAT_SUBENTRY_TYPES, SUBENTRY_TYPE_AI_TASK_IMAGE)
 
 # Config keys - subentry (per-model settings)
 CONF_PROVIDER = "provider"
@@ -68,6 +82,50 @@ SUPPORTED_PROVIDERS = [
     "together-ai",
     "workers-ai",
 ]
+
+# Dispatcher signal for sensor updates
+SIGNAL_MODEL_STATS_UPDATED = f"{DOMAIN}_stats_updated_{{subentry_id}}"
+
+# Storage key for persisting model stats
+STORAGE_KEY_STATS = f"{DOMAIN}_{{entry_id}}_stats"
+STORAGE_VERSION = 1
+
+
+def today_local_date() -> str:
+    """Return today's date string in the user's local timezone."""
+    return dt_util.start_of_local_day().date().isoformat()
+
+
+@dataclass
+class ModelStats:
+    """Usage statistics for a single model, reset daily."""
+
+    total_requests: int = 0
+    total_errors: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_hits: int = 0
+    reset_date: str = ""
+
+    def maybe_reset(self, today: str) -> None:
+        """Reset counters if we've crossed into a new day."""
+        if self.reset_date != today:
+            self.total_requests = 0
+            self.total_errors = 0
+            self.input_tokens = 0
+            self.output_tokens = 0
+            self.cache_hits = 0
+            self.reset_date = today
+
+
+@dataclass
+class CloudflareAIGatewayRuntimeData:
+    """Runtime data shared across platforms for a config entry."""
+
+    model_stats: dict[str, ModelStats] = field(default_factory=dict)
+    store: Store[dict[str, dict[str, Any]]] | None = field(default=None, repr=False)
+    analytics_coordinator: DataUpdateCoordinator[float | None] | None = field(default=None, repr=False)
+
 
 # Supported Workers AI image generation models
 SUPPORTED_IMAGE_MODELS = [
