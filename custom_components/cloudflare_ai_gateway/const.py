@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from homeassistant.helpers.storage import Store
+    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 DOMAIN = "cloudflare_ai_gateway"
 LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -105,6 +106,7 @@ class CloudflareAIGatewayRuntimeData:
 
     model_stats: dict[str, ModelStats] = field(default_factory=dict)
     store: Store[dict[str, dict[str, Any]]] | None = field(default=None, repr=False)
+    analytics_coordinator: DataUpdateCoordinator[float | None] | None = field(default=None, repr=False)
 
 
 # Supported Workers AI image generation models

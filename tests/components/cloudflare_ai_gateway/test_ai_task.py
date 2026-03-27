@@ -231,10 +231,18 @@ async def test_generate_image_sends_integer_dimensions(
             "custom_components.cloudflare_ai_gateway.validate_model",
             new_callable=AsyncMock,
         ),
+        patch(
+            "custom_components.cloudflare_ai_gateway.coordinator.get_async_client",
+        ) as mock_gql_client,
     ):
         mock_http = AsyncMock()
         mock_get_client.return_value = mock_http
         mock_http.get.return_value = cf_response
+
+        mock_gql_http = AsyncMock()
+        mock_gql_client.return_value = mock_gql_http
+        mock_gql_http.post.side_effect = httpx.TimeoutException("mock")
+
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 

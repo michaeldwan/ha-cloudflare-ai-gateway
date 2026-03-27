@@ -48,6 +48,9 @@
       },
       "errors": {
         "name": "Errors"
+      },
+      "cost_today": {
+        "name": "Cost today"
       }
     }
   },

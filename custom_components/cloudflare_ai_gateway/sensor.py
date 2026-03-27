@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription, SensorStateClass
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from . import CloudflareAIGatewayConfigEntry
 from .const import CHAT_SUBENTRY_TYPES, DOMAIN, SIGNAL_MODEL_STATS_UPDATED, SUBENTRY_TYPE_AI_TASK_IMAGE, ModelStats
@@ -98,6 +102,10 @@ async def async_setup_entry(
             config_subentry_id=subentry.subentry_id,
         )
 
+    # Gateway-level cost sensor (requires analytics access)
+    if entry.runtime_data.analytics_coordinator is not None:
+        async_add_entities([CloudflareGatewayCostSensor(entry)])
+
 
 class CloudflareAIGatewayUsageSensor(SensorEntity):
     """Sensor exposing accumulated usage stats for a model."""
@@ -137,3 +145,36 @@ class CloudflareAIGatewayUsageSensor(SensorEntity):
     def _handle_stats_update(self) -> None:
         """Handle updated stats from the LLM entity."""
         self.async_write_ha_state()
+
+
+class CloudflareGatewayCostSensor(CoordinatorEntity, SensorEntity):
+    """Sensor showing gateway cost today, reset daily."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "cost_today"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_native_unit_of_measurement = "USD"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_suggested_display_precision = 6
+
+    def __init__(self, entry: CloudflareAIGatewayConfigEntry) -> None:
+        """Initialize the cost sensor."""
+        super().__init__(entry.runtime_data.analytics_coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_cost_today"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="Cloudflare",
+            entry_type=dr.DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        """Return cost today."""
+        return self.coordinator.data
+
+    @property
+    def last_reset(self) -> datetime:
+        """Return start of today in the user's local timezone."""
+        return dt_util.start_of_local_day()

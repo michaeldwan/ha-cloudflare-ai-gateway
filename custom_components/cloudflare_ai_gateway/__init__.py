@@ -20,6 +20,7 @@ from .const import (
     CONF_ACCOUNT_ID,
     CONF_CF_API_TOKEN,
     CONF_CHAT_MODEL,
+    CONF_GATEWAY_ID,
     CONF_IMAGE_MODEL,
     DOMAIN,
     LOGGER,
@@ -33,6 +34,7 @@ from .const import (
     CloudflareAIGatewayRuntimeData,
     ModelStats,
 )
+from .coordinator import CloudflareAnalyticsCoordinator
 
 PLATFORMS = (Platform.AI_TASK, Platform.CONVERSATION, Platform.SENSOR)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -114,7 +116,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: CloudflareAIGatewayConfi
             else:
                 model_stats[subentry_id] = ModelStats()
 
-    entry.runtime_data = CloudflareAIGatewayRuntimeData(model_stats=model_stats, store=store)
+    runtime_data = CloudflareAIGatewayRuntimeData(model_stats=model_stats, store=store)
+
+    # Try to set up analytics — requires Account Analytics: Read permission
+    coordinator = CloudflareAnalyticsCoordinator(
+        hass,
+        account_id=account_id,
+        gateway_id=entry.data[CONF_GATEWAY_ID],
+        api_token=cf_api_token,
+    )
+    await coordinator.async_refresh()
+    if coordinator.last_update_success:
+        runtime_data.analytics_coordinator = coordinator
+
+    entry.runtime_data = runtime_data
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

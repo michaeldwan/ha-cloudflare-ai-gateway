@@ -1,6 +1,6 @@
 """Tests for Cloudflare AI Gateway usage monitoring sensors."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import openai
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -196,3 +196,84 @@ async def test_sensors_track_cache_hits(
     subentry_id = next(iter(mock_config_entry_with_subentries.subentries))
     stats = mock_config_entry_with_subentries.runtime_data.model_stats[subentry_id]
     assert stats.cache_hits == 1
+
+
+# --- Gateway cost sensor ---
+
+
+async def test_cost_sensor_not_created_without_analytics(
+    hass: HomeAssistant,
+    mock_config_entry_with_subentries: MockConfigEntry,
+    mock_init_component_with_subentries: None,
+) -> None:
+    """Test that no cost sensor is created when analytics is not available."""
+    sensor_ids = hass.states.async_entity_ids("sensor")
+    cost_sensors = [s for s in sensor_ids if "cost" in s]
+    assert len(cost_sensors) == 0
+
+
+async def test_cost_sensor_created_with_analytics(
+    hass: HomeAssistant,
+    mock_config_entry_with_subentries: MockConfigEntry,
+) -> None:
+    """Test that cost sensor is created when analytics coordinator is available."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"success": True, "result": {"status": "active"}}
+
+    graphql_response = MagicMock()
+    graphql_response.json.return_value = {
+        "data": {
+            "viewer": {
+                "accounts": [
+                    {
+                        "today": [
+                            {"count": 5, "sum": {"cost": 0.0042}},
+                        ]
+                    }
+                ]
+            }
+        },
+        "errors": None,
+    }
+
+    with (
+        patch(
+            "custom_components.cloudflare_ai_gateway.get_async_client",
+        ) as mock_get_client,
+        patch(
+            "custom_components.cloudflare_ai_gateway.validate_model",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "custom_components.cloudflare_ai_gateway.coordinator.get_async_client",
+        ) as mock_gql_client,
+    ):
+        mock_http = AsyncMock()
+        mock_get_client.return_value = mock_http
+        mock_http.get.return_value = mock_response
+
+        mock_gql_http = AsyncMock()
+        mock_gql_client.return_value = mock_gql_http
+        mock_gql_http.post.return_value = graphql_response
+
+        await hass.config_entries.async_setup(mock_config_entry_with_subentries.entry_id)
+        await hass.async_block_till_done()
+
+    # Should have the cost sensor
+    sensor_ids = hass.states.async_entity_ids("sensor")
+    cost_sensors = [s for s in sensor_ids if "cost" in s]
+    assert len(cost_sensors) == 1
+
+    state = hass.states.get(cost_sensors[0])
+    assert state is not None
+    assert float(state.state) == 0.0042
+    assert state.attributes.get("device_class") == "monetary"
+    assert state.attributes.get("state_class") == "total"
+    assert state.attributes.get("unit_of_measurement") == "USD"
+
+    # Verify it's on a gateway device, not a model device
+    registry = er.async_get(hass)
+    entry = registry.async_get(cost_sensors[0])
+    assert entry is not None
+    assert entry.entity_category == EntityCategory.DIAGNOSTIC

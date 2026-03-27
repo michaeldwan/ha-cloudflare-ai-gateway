@@ -27,12 +27,22 @@ async def test_setup_entry(
     mock_response.status_code = 200
     mock_response.json.return_value = {"success": True, "result": {"status": "active"}}
 
-    with patch(
-        "custom_components.cloudflare_ai_gateway.get_async_client",
-    ) as mock_get_client:
+    with (
+        patch(
+            "custom_components.cloudflare_ai_gateway.get_async_client",
+        ) as mock_get_client,
+        patch(
+            "custom_components.cloudflare_ai_gateway.coordinator.get_async_client",
+        ) as mock_gql_client,
+    ):
         mock_http = AsyncMock()
         mock_get_client.return_value = mock_http
         mock_http.get.return_value = mock_response
+
+        mock_gql_http = AsyncMock()
+        mock_gql_client.return_value = mock_gql_http
+        mock_gql_http.post.side_effect = httpx.TimeoutException("mock")
+
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
@@ -178,15 +188,24 @@ async def test_subentry_added_reloads_entry(
     entity_registry = er.async_get(hass)
     assert not er.async_entries_for_config_entry(entity_registry, mock_config_entry.entry_id)
 
-    with patch(
-        "custom_components.cloudflare_ai_gateway.get_async_client",
-    ) as mock_get_client:
+    with (
+        patch(
+            "custom_components.cloudflare_ai_gateway.get_async_client",
+        ) as mock_get_client,
+        patch(
+            "custom_components.cloudflare_ai_gateway.coordinator.get_async_client",
+        ) as mock_gql_client,
+    ):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"success": True, "result": {"status": "active"}}
         mock_http = AsyncMock()
         mock_get_client.return_value = mock_http
         mock_http.get.return_value = mock_response
+
+        mock_gql_http = AsyncMock()
+        mock_gql_client.return_value = mock_gql_http
+        mock_gql_http.post.side_effect = httpx.TimeoutException("mock")
 
         hass.config_entries.async_add_subentry(
             mock_config_entry,
