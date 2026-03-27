@@ -39,9 +39,11 @@ You need a free Cloudflare account and three things from the dashboard: your Acc
 
 Sign up or log in at [dash.cloudflare.com](https://dash.cloudflare.com/). You can find your Account ID by clicking on "Quick search" in the sidebar or the "cmd+k" hotkeys, then select "Copy account ID". It's also in every dashboard URL: `dash.cloudflare.com/<account-id>/...`.
 
-### 2. Create an AI Gateway
+### 2. Get your AI Gateway ID
 
-Go to the AI Gateway config by clicking Build > AI > AI Gateway in the sidebar or selecting "AI Gateway" in the Quicksearch. Create a gateway -- the name you pick becomes the slug you'll enter in HA. There's no cost to create a gateway, so feel free to make one dedicated to your Home Assistant install.
+Either [create a new gateway](https://dash.cloudflare.com/?to=/:account/ai/ai-gateway/create-gateway) or [choose from your existing ones](https://dash.cloudflare.com/?to=/:account/ai/ai-gateway). The ID of the gateway is what you'll enter in HA to connect to it.
+
+There's no cost to creating multiple gateways, so I recommend a new one dedicated to Home Assistant for isolation and cost control, but you can reuse an existing gateway if you prefer.
 
 ### 3. Create an API token
 
@@ -54,7 +56,7 @@ On your gateway page, click the "Create token" button on the right sidebar. The 
 
 This is the token you'll use to authenticate the Home Assistant integration to this gateway.
 
-For Workers AI models, this is the only credential you need. 
+For Workers AI models, this is the only credential you need.
 
 If you're using third-party providers (OpenAI, Anthropic, Google, etc.) and don't want consolidated billing, you'll need to add API keys in the "Provider Keys" section of your gateway settings.
 
