@@ -49,9 +49,14 @@ On your gateway page, click the "Create token" button on the right sidebar. The 
 
 <img src="https://raw.githubusercontent.com/michaeldwan/ha-cloudflare-ai-gateway/main/images/ai-gateway-token.png" alt="AI Gateway token permissions" width="200">
 
+> [!NOTE]
+> To enable cost tracking, add **Account > Account Analytics > Read** to the token (see [Usage sensors](#cost-tracking)).
+
 This is the token you'll use to authenticate the Home Assistant integration to this gateway.
 
-For Workers AI models, this is the only credential you need. If you're using third-party providers (OpenAI, Anthropic, Google, etc.) and don't want consolidated billing, you'll need to add API keys in the "Provider Keys" section of your gateway settings.
+For Workers AI models, this is the only credential you need. 
+
+If you're using third-party providers (OpenAI, Anthropic, Google, etc.) and don't want consolidated billing, you'll need to add API keys in the "Provider Keys" section of your gateway settings.
 
 ### 4. Add the integration
 
@@ -86,9 +91,15 @@ Each model automatically gets diagnostic sensors that track usage from requests 
 - **Cache hits** -- responses served from Cloudflare's cache
 - **Errors** -- failed requests
 
-Image models get requests and errors only (no token counts).
+Image models don't have tokens, so they get requests and errors only.
 
 These are `total_increasing` sensors, so you can use HA's [utility meter](https://www.home-assistant.io/integrations/utility_meter/) helper to create daily, weekly, or monthly breakdowns. Stats persist across restarts.
+
+### Cost tracking
+
+If your API token has the **Account Analytics: Read** permission, a **Cost today** sensor appears on a gateway-level device. It polls Cloudflare's GraphQL analytics API every 5 minutes and resets daily at midnight. This is the same cost data shown in the AI Gateway dashboard.
+
+To enable it, edit your API token in the Cloudflare dashboard and add **Account > Account Analytics > Read**. The integration detects this automatically on startup -- no reconfiguration needed, just restart HA.
 
 ## Recommended models
 
