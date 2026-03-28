@@ -90,7 +90,7 @@ async def test_form_creates_entry_with_default_subentries(hass: HomeAssistant) -
             assert s["data"][CONF_RECOMMENDED] is True
             assert s["data"][CONF_LLM_HASS_API] == ["assist"]
         elif s["subentry_type"] == SUBENTRY_TYPE_AI_TASK_DATA:
-            assert s["title"] == "Kimi K2.5"
+            assert s["title"] == "GPT-OSS-20B"
             assert s["data"][CONF_PROVIDER] == DEFAULT_PROVIDER
             assert s["data"][CONF_CHAT_MODEL] == DEFAULT_AI_TASK_DATA_MODEL
             assert s["data"][CONF_RECOMMENDED] is True
@@ -592,7 +592,7 @@ async def test_ai_task_data_form_defaults(
     mock_config_entry: MockConfigEntry,
     mock_init_component: None,
 ) -> None:
-    """Test that AI task data form defaults to workers-ai provider and Kimi model."""
+    """Test that AI task data form defaults to workers-ai provider and GPT-OSS-20B model."""
     result = await hass.config_entries.subentries.async_init(
         (mock_config_entry.entry_id, SUBENTRY_TYPE_AI_TASK_DATA),
         context={"source": "user"},

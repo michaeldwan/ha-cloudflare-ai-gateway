@@ -205,7 +205,7 @@ class CloudflareAIGatewayConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                         {
                             "subentry_type": SUBENTRY_TYPE_AI_TASK_DATA,
-                            "title": "Kimi K2.5",
+                            "title": "GPT-OSS-20B",
                             "data": {
                                 CONF_RECOMMENDED: True,
                                 CONF_PROVIDER: DEFAULT_PROVIDER,

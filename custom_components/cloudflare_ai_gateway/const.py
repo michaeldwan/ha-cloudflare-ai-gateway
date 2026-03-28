@@ -50,7 +50,7 @@ CONF_CACHE_TTL = "cache_ttl"
 # Defaults
 DEFAULT_PROVIDER = "workers-ai"
 DEFAULT_CONVERSATION_MODEL = "@cf/zai-org/glm-4.7-flash"
-DEFAULT_AI_TASK_DATA_MODEL = "@cf/moonshotai/kimi-k2.5"
+DEFAULT_AI_TASK_DATA_MODEL = "@cf/openai/gpt-oss-20b"
 
 DEFAULT_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 DEFAULT_IMAGE_WIDTH = 1024

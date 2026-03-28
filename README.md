@@ -115,9 +115,9 @@ All of these support function calling, which is what lets a model turn a voice c
 |---|---|---|---|
 | GLM-4.7 Flash | `@cf/zai-org/glm-4.7-flash` | Low | Fast and cheap. Default conversation model. Good everyday option. |
 | Qwen3 30B | `@cf/qwen/qwen3-30b-a3b-fp8` | Low | Cheapest input cost of any function-calling model. Reasoning capable. |
-| GPT-OSS-20B | `@cf/openai/gpt-oss-20b` | Low | Reasoning model at a fraction of Kimi's cost. |
+| GPT-OSS-20B | `@cf/openai/gpt-oss-20b` | Low | Solid reasoning at low cost. Default AI task model. |
 | Mistral Small 3.1 | `@cf/mistralai/mistral-small-3.1-24b-instruct` | Medium | Good balance of capability and cost. |
-| Kimi K2.5 | `@cf/moonshotai/kimi-k2.5` | High | Most capable reasoning model, but burns through the free tier fast. Default AI task model. |
+| Kimi K2.5 | `@cf/moonshotai/kimi-k2.5` | High | Most capable reasoning model, but burns through the free tier fast. |
 | Llama 3.3 70B | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | High | Strong function calling. Similar cost tier to Kimi. |
 
 ### Image
