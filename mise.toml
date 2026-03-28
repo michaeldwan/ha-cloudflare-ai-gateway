@@ -32,15 +32,6 @@ description = "Run all checks (lint, format, tests) — same as CI"
 depends = ["lint", "test"]
 
 [tasks.release]
-description = "Validate, tag a new release, and push"
-usage = 'arg "<version>"'
+description = "Validate, stamp version, tag, and push a release"
 depends = ["validate"]
-run = """
-version="$usage_version"
-if ! echo "$version" | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+$'; then
-  echo "Invalid version: $version (expected X.Y.Z)" >&2
-  exit 1
-fi
-git tag "v$version"
-git push origin "v$version"
-"""
+run = "scripts/release"

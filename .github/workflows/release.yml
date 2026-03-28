@@ -15,12 +15,6 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Stamp version from tag
-        run: scripts/stamp-version
-
       - name: Package integration
         run: |
           cd custom_components/cloudflare_ai_gateway

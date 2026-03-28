@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+manifest="$root/custom_components/cloudflare_ai_gateway/manifest.json"
+
+# Derive calver: YYYY.MM.inc (zero-padded month)
+year=$(date +%Y)
+month=$(date +%m)
+prefix="v${year}.${month}."
+
+# Find the highest inc for this month, default to -1 so first release is .0
+last_inc=$(git tag -l "${prefix}*" | sed "s/^${prefix}//" | sort -n | tail -1)
+inc=$(( ${last_inc:--1} + 1 ))
+
+version="${year}.${month}.${inc}"
+
+echo "Releasing $version"
+
+# Stamp version
+jq --arg v "$version" '.version = $v' "$manifest" > "$manifest.tmp" && mv "$manifest.tmp" "$manifest"
+
+# Commit, tag, push
+git add "$manifest"
+git commit -m "Release $version"
+git tag "v$version"
+git push origin main "v$version"
+
+echo "Released $version"
