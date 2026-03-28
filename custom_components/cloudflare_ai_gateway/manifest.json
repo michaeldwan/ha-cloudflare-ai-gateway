@@ -1,15 +1,28 @@
 {
   "domain": "cloudflare_ai_gateway",
   "name": "Cloudflare AI Gateway",
-  "after_dependencies": ["assist_pipeline", "intent"],
-  "codeowners": ["@michaeldwan"],
+  "after_dependencies": [
+    "assist_pipeline",
+    "intent"
+  ],
+  "codeowners": [
+    "@michaeldwan"
+  ],
   "config_flow": true,
-  "dependencies": ["ai_task", "conversation"],
+  "dependencies": [
+    "ai_task",
+    "conversation"
+  ],
   "documentation": "https://github.com/michaeldwan/ha-cloudflare-ai-gateway",
   "integration_type": "service",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/michaeldwan/ha-cloudflare-ai-gateway/issues",
-  "loggers": ["openai", "httpx"],
-  "requirements": ["openai>=2.21.0"],
-  "version": "0.0.0-dev"
+  "loggers": [
+    "openai",
+    "httpx"
+  ],
+  "requirements": [
+    "openai>=2.21.0"
+  ],
+  "version": "2026.03.0"
 }
