@@ -1,6 +1,7 @@
 """Tests for the Cloudflare AI Gateway AI Task entities."""
 
 import base64
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -21,9 +22,11 @@ from custom_components.cloudflare_ai_gateway.const import (
     SUBENTRY_TYPE_AI_TASK_IMAGE,
 )
 from homeassistant.components import ai_task
+from homeassistant.components.media_source.models import PlayMedia
 from homeassistant.config_entries import ConfigSubentryData
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.selector import BooleanSelector, NumberSelector, ObjectSelector, SelectSelector, TextSelector
 
 
 async def test_data_task_entity_is_registered(
@@ -108,6 +111,157 @@ async def test_generate_data_structured(
     assert "tools" not in call_kwargs
 
 
+@pytest.mark.parametrize(
+    ("selector", "json_response", "expected_data", "expected_type"),
+    [
+        (TextSelector({}), '{"key": "hello"}', {"key": "hello"}, "string"),
+        (NumberSelector({}), '{"key": 3}', {"key": 3}, "number"),
+        (BooleanSelector({}), '{"key": true}', {"key": True}, "boolean"),
+        (
+            SelectSelector({"options": ["happy", "neutral", "sad"]}),
+            '{"key": "happy"}',
+            {"key": "happy"},
+            "string",
+        ),
+    ],
+    ids=["text", "number", "boolean", "select"],
+)
+async def test_generate_data_structured_selector_types(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+    mock_create_stream: AsyncMock,
+    selector,
+    json_response: str,
+    expected_data: dict,
+    expected_type: str,
+) -> None:
+    """Test structured output with various HA selector types."""
+    mock_create_stream.return_value = mock_create_stream.AsyncStreamHelper(
+        [
+            mock_create_stream.make_text_chunk(json_response, role="assistant"),
+            mock_create_stream.make_text_chunk(None, finish_reason="stop"),
+            mock_create_stream.make_usage_chunk(),
+        ]
+    )
+
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    structure = vol.Schema({vol.Required("key"): selector})
+
+    result = await ai_task.async_generate_data(
+        hass,
+        task_name="test_selector",
+        entity_id=entity_id,
+        instructions="Generate data",
+        structure=structure,
+    )
+
+    assert result.data == expected_data
+
+    schema = mock_create_stream.last_call_kwargs["response_format"]["json_schema"]["schema"]
+    assert schema["properties"]["key"]["type"] == expected_type
+
+
+async def test_generate_data_structured_optional_fields(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+    mock_create_stream: AsyncMock,
+) -> None:
+    """Test structured output with mix of required and optional fields."""
+    mock_create_stream.return_value = mock_create_stream.AsyncStreamHelper(
+        [
+            mock_create_stream.make_text_chunk(
+                '{"title": "Test", "description": "Details"}',
+                role="assistant",
+            ),
+            mock_create_stream.make_text_chunk(None, finish_reason="stop"),
+            mock_create_stream.make_usage_chunk(),
+        ]
+    )
+
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    structure = vol.Schema(
+        {
+            vol.Required("title"): TextSelector({}),
+            vol.Optional("description"): TextSelector({}),
+        }
+    )
+
+    result = await ai_task.async_generate_data(
+        hass,
+        task_name="summary",
+        entity_id=entity_id,
+        instructions="Summarize",
+        structure=structure,
+    )
+
+    assert result.data == {"title": "Test", "description": "Details"}
+
+    schema = mock_create_stream.last_call_kwargs["response_format"]["json_schema"]["schema"]
+    assert "title" in schema["properties"]
+    assert "description" in schema["properties"]
+    assert "title" in schema["required"]
+    assert "description" not in schema["required"]
+
+
+async def test_generate_data_structured_nested_object(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+    mock_create_stream: AsyncMock,
+) -> None:
+    """Test structured output with nested ObjectSelector."""
+    mock_create_stream.return_value = mock_create_stream.AsyncStreamHelper(
+        [
+            mock_create_stream.make_text_chunk(
+                '{"location": {"city": "Portland", "temp": 55}}',
+                role="assistant",
+            ),
+            mock_create_stream.make_text_chunk(None, finish_reason="stop"),
+            mock_create_stream.make_usage_chunk(),
+        ]
+    )
+
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    structure = vol.Schema(
+        {
+            vol.Required("location"): ObjectSelector(
+                {
+                    "fields": {
+                        "city": {"selector": {"text": {}}, "required": True},
+                        "temp": {"selector": {"number": {}}, "required": True},
+                    }
+                }
+            ),
+        }
+    )
+
+    result = await ai_task.async_generate_data(
+        hass,
+        task_name="weather",
+        entity_id=entity_id,
+        instructions="Get weather",
+        structure=structure,
+    )
+
+    assert result.data == {"location": {"city": "Portland", "temp": 55}}
+
+    schema = mock_create_stream.last_call_kwargs["response_format"]["json_schema"]["schema"]
+    location = schema["properties"]["location"]
+    assert location["type"] == "object"
+    assert location["properties"]["city"]["type"] == "string"
+    assert location["properties"]["temp"]["type"] == "number"
+    # Verify additionalProperties:false is set on nested objects too
+    assert location["additionalProperties"] is False
+
+
 async def test_generate_data_structured_invalid_json(
     hass: HomeAssistant,
     mock_config_entry_with_ai_task_data: MockConfigEntry,
@@ -136,6 +290,146 @@ async def test_generate_data_structured_invalid_json(
             instructions="Generate data",
             structure=structure,
         )
+
+
+async def test_data_task_supports_attachments(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+) -> None:
+    """Test that data task entity declares attachment support."""
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    entity = hass.data[ai_task.const.DATA_COMPONENT].get_entity(entity_id)
+    assert ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS in entity.supported_features
+
+
+async def test_generate_data_with_image_attachment(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+    mock_create_stream: AsyncMock,
+    tmp_path: Path,
+) -> None:
+    """Test generate_data sends image attachments as base64 image_url content blocks."""
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    # Create a fake image file
+    image_file = tmp_path / "snapshot.jpg"
+    image_data = b"\xff\xd8\xff\xe0" + b"\x00" * 50
+    image_file.write_bytes(image_data)
+
+    with patch(
+        "homeassistant.components.ai_task.task.media_source.async_resolve_media",
+        return_value=PlayMedia(url=str(image_file), mime_type="image/jpeg", path=image_file),
+    ):
+        result = await ai_task.async_generate_data(
+            hass,
+            task_name="describe_camera",
+            entity_id=entity_id,
+            instructions="What do you see?",
+            attachments=[{"media_content_id": f"media-source://media/{image_file}"}],
+        )
+
+    assert result.data == "Hello!"
+
+    # Verify the user message has multi-part content with text + image
+    call_kwargs = mock_create_stream.last_call_kwargs
+    messages = call_kwargs["messages"]
+    user_msg = next(m for m in messages if m["role"] == "user")
+    assert isinstance(user_msg["content"], list)
+
+    content_types = [part["type"] for part in user_msg["content"]]
+    assert "text" in content_types
+    assert "image_url" in content_types
+
+    image_part = next(p for p in user_msg["content"] if p["type"] == "image_url")
+    assert image_part["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+    # Verify the base64 content decodes back to the original bytes
+    data_url = image_part["image_url"]["url"]
+    b64_data = data_url.split(",", 1)[1]
+    assert base64.b64decode(b64_data) == image_data
+
+
+async def test_generate_data_with_multiple_attachments(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+    mock_create_stream: AsyncMock,
+    tmp_path: Path,
+) -> None:
+    """Test generate_data with multiple image attachments."""
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    # Create two fake image files
+    image1 = tmp_path / "cam1.jpg"
+    image1.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 20)
+    image2 = tmp_path / "cam2.png"
+    image2.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 20)
+
+    resolve_results = iter(
+        [
+            PlayMedia(url=str(image1), mime_type="image/jpeg", path=image1),
+            PlayMedia(url=str(image2), mime_type="image/png", path=image2),
+        ]
+    )
+
+    with patch(
+        "homeassistant.components.ai_task.task.media_source.async_resolve_media",
+        side_effect=lambda *a, **kw: next(resolve_results),
+    ):
+        result = await ai_task.async_generate_data(
+            hass,
+            task_name="compare_cameras",
+            entity_id=entity_id,
+            instructions="Compare these two images",
+            attachments=[
+                {"media_content_id": f"media-source://media/{image1}"},
+                {"media_content_id": f"media-source://media/{image2}"},
+            ],
+        )
+
+    assert result.data == "Hello!"
+
+    call_kwargs = mock_create_stream.last_call_kwargs
+    messages = call_kwargs["messages"]
+    user_msg = next(m for m in messages if m["role"] == "user")
+    assert isinstance(user_msg["content"], list)
+
+    image_parts = [p for p in user_msg["content"] if p["type"] == "image_url"]
+    assert len(image_parts) == 2
+    assert image_parts[0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert image_parts[1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+async def test_generate_data_text_only_still_works(
+    hass: HomeAssistant,
+    mock_config_entry_with_ai_task_data: MockConfigEntry,
+    mock_init_component_with_ai_task_data: None,
+    mock_create_stream: AsyncMock,
+) -> None:
+    """Test that plain text messages without attachments still use simple string content."""
+    entity_ids = hass.states.async_entity_ids("ai_task")
+    entity_id = next(eid for eid in entity_ids if eid != "ai_task.home_assistant")
+
+    result = await ai_task.async_generate_data(
+        hass,
+        task_name="simple",
+        entity_id=entity_id,
+        instructions="Say hello",
+    )
+
+    assert result.data == "Hello!"
+
+    # Verify user message content is a plain string, not a list
+    call_kwargs = mock_create_stream.last_call_kwargs
+    messages = call_kwargs["messages"]
+    user_msg = next(m for m in messages if m["role"] == "user")
+    assert isinstance(user_msg["content"], str)
 
 
 async def test_image_task_entity_is_registered(

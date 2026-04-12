@@ -10,34 +10,35 @@ from custom_components.cloudflare_ai_gateway.entity import (
     _transform_stream,
 )
 from homeassistant.components import conversation
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm
 
 # --- _convert_content_to_messages ---
 
 
-def test_convert_system_message():
+async def test_convert_system_message(hass: HomeAssistant):
     """Test system message conversion."""
     content = [conversation.SystemContent(content="You are helpful.")]
-    messages = _convert_content_to_messages(content)
+    messages = await _convert_content_to_messages(hass, content)
     assert messages == [{"role": "system", "content": "You are helpful."}]
 
 
-def test_convert_user_message():
+async def test_convert_user_message(hass: HomeAssistant):
     """Test user message conversion."""
     content = [conversation.UserContent(content="Hello")]
-    messages = _convert_content_to_messages(content)
+    messages = await _convert_content_to_messages(hass, content)
     assert messages == [{"role": "user", "content": "Hello"}]
 
 
-def test_convert_assistant_message_with_text():
+async def test_convert_assistant_message_with_text(hass: HomeAssistant):
     """Test assistant message with text content."""
     content = [conversation.AssistantContent(agent_id="test", content="Hi there!")]
-    messages = _convert_content_to_messages(content)
+    messages = await _convert_content_to_messages(hass, content)
     assert messages == [{"role": "assistant", "content": "Hi there!"}]
 
 
-def test_convert_assistant_message_with_tool_calls():
+async def test_convert_assistant_message_with_tool_calls(hass: HomeAssistant):
     """Test assistant message with tool calls."""
     content = [
         conversation.AssistantContent(
@@ -47,7 +48,7 @@ def test_convert_assistant_message_with_tool_calls():
             ],
         )
     ]
-    messages = _convert_content_to_messages(content)
+    messages = await _convert_content_to_messages(hass, content)
     assert len(messages) == 1
     assert messages[0]["role"] == "assistant"
     assert "content" not in messages[0]
@@ -58,7 +59,7 @@ def test_convert_assistant_message_with_tool_calls():
     assert '"city"' in tc["function"]["arguments"]
 
 
-def test_convert_tool_result():
+async def test_convert_tool_result(hass: HomeAssistant):
     """Test tool result conversion."""
     content = [
         conversation.ToolResultContent(
@@ -68,20 +69,20 @@ def test_convert_tool_result():
             tool_result={"temperature": 20},
         )
     ]
-    messages = _convert_content_to_messages(content)
+    messages = await _convert_content_to_messages(hass, content)
     assert len(messages) == 1
     assert messages[0]["role"] == "tool"
     assert messages[0]["tool_call_id"] == "call_1"
     assert "20" in messages[0]["content"]
 
 
-def test_convert_empty_content():
+async def test_convert_empty_content(hass: HomeAssistant):
     """Test empty content handling."""
-    messages = _convert_content_to_messages([])
+    messages = await _convert_content_to_messages(hass, [])
     assert messages == []
 
 
-def test_convert_mixed_conversation():
+async def test_convert_mixed_conversation(hass: HomeAssistant):
     """Test a full conversation with multiple message types."""
     content = [
         conversation.SystemContent(content="Be helpful"),
@@ -95,7 +96,7 @@ def test_convert_mixed_conversation():
         ),
         conversation.AssistantContent(agent_id="test", content="It's sunny and 25C in NYC!"),
     ]
-    messages = _convert_content_to_messages(content)
+    messages = await _convert_content_to_messages(hass, content)
     assert len(messages) == 5
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
