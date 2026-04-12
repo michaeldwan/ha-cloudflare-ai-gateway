@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 from collections.abc import AsyncGenerator, Callable
 import json
 from typing import TYPE_CHECKING, Any
@@ -13,6 +15,7 @@ from voluptuous_openapi import convert
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, llm
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -42,8 +45,6 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
-
     from . import CloudflareAIGatewayConfigEntry
 
 # Max number of back and forth with the LLM to generate a response
@@ -62,7 +63,8 @@ def _format_tool(tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None)
     }
 
 
-def _convert_content_to_messages(
+async def _convert_content_to_messages(
+    hass: HomeAssistant,
     chat_content: list[conversation.Content],
 ) -> list[ChatCompletionMessageParam]:
     """Convert HA chat log content to OpenAI Chat Completions message format."""
@@ -82,7 +84,22 @@ def _convert_content_to_messages(
         if content.role == "system":
             messages.append({"role": "system", "content": content.content or ""})
         elif content.role == "user":
-            messages.append({"role": "user", "content": content.content or ""})
+            if isinstance(content, conversation.UserContent) and content.attachments:
+                parts: list[dict[str, Any]] = [{"type": "text", "text": content.content or ""}]
+                raw_data = await asyncio.gather(
+                    *(hass.async_add_executor_job(a.path.read_bytes) for a in content.attachments)
+                )
+                for attachment, data in zip(content.attachments, raw_data, strict=True):
+                    b64 = base64.b64encode(data).decode("utf-8")
+                    parts.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{attachment.mime_type};base64,{b64}"},
+                        }
+                    )
+                messages.append({"role": "user", "content": parts})
+            else:
+                messages.append({"role": "user", "content": content.content or ""})
         elif isinstance(content, conversation.AssistantContent):
             msg: dict[str, Any] = {"role": "assistant"}
             if content.content:
@@ -275,7 +292,7 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
         """Generate an answer for the chat log."""
         options = self.subentry.data
 
-        messages = _convert_content_to_messages(chat_log.content)
+        messages = await _convert_content_to_messages(self.hass, chat_log.content)
 
         model = self._get_model()
         model_args: dict[str, Any] = {
@@ -290,7 +307,8 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
         }
 
         if structure:
-            schema = convert(structure)
+            custom_serializer = chat_log.llm_api.custom_serializer if chat_log.llm_api else llm.selector_serializer
+            schema = convert(structure, custom_serializer=custom_serializer)
             _add_additional_properties_false(schema)
             model_args["response_format"] = {
                 "type": "json_schema",
@@ -301,7 +319,7 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
                 },
             }
 
-        if not structure:
+        else:
             tools: list[dict[str, Any]] = []
             if chat_log.llm_api:
                 tools = [_format_tool(tool, chat_log.llm_api.custom_serializer) for tool in chat_log.llm_api.tools]
@@ -336,7 +354,7 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
                             _transform_stream(chat_log, stream, model_stats),
                         )
                     ]
-                    messages.extend(_convert_content_to_messages(new_content))
+                    messages.extend(await _convert_content_to_messages(self.hass, new_content))
                     model_args["messages"] = messages
 
             except openai.AuthenticationError as err:
