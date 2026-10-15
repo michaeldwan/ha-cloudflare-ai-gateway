@@ -22,7 +22,8 @@
     "httpx"
   ],
   "requirements": [
-    "openai>=2.21.0"
+    "openai>=2.21.0",
+    "voluptuous-openapi"
   ],
-  "version": "2026.04.0"
+  "version": "2026.10.0"
 }
