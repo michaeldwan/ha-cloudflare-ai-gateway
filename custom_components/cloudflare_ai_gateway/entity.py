@@ -10,8 +10,19 @@ from typing import TYPE_CHECKING, Any
 
 import openai
 from openai.types.chat import ChatCompletionMessageParam
-import voluptuous as vol
-from voluptuous_openapi import convert
+
+try:
+    # Home Assistant 2026.10+ moved schemas to probatio. Its custom serializers
+    # (llm.selector_serializer, API custom_serializer) now return probatio's
+    # UNSUPPORTED sentinel, which voluptuous_openapi does not recognise.
+    import probatio
+
+    def convert(schema: Any, *, custom_serializer: Callable[[Any], Any] | None = None) -> dict[str, Any]:
+        """Convert a schema to OpenAPI using probatio."""
+        return probatio.to_openapi(schema, custom_serializer=custom_serializer)
+
+except ImportError:  # Home Assistant < 2026.10
+    from voluptuous_openapi import convert  # type: ignore[no-redef]
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigSubentry
@@ -287,7 +298,7 @@ class CloudflareAIGatewayBaseLLMEntity(Entity):
     async def _async_handle_chat_log(
         self,
         chat_log: conversation.ChatLog,
-        structure: vol.Schema | None = None,
+        structure: Any | None = None,
     ) -> None:
         """Generate an answer for the chat log."""
         options = self.subentry.data
